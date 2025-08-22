@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "822979000344",
+    "project_id": "ecobreack-5dfe5",
+    "storage_bucket": "ecobreack-5dfe5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:822979000344:android:b373a9f56f1775e61f2b6d",
+        "android_client_info": {
+          "package_name": "com.emasEco.Ecobreak"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "822979000344-0qufe095ib1o301e0n3s4muemjjhfhvl.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBd8c4z93--NVeTTAdLzRvkimm3tOgoMpI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "822979000344-0qufe095ib1o301e0n3s4muemjjhfhvl.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "822979000344-c84j1m2sjpu2somtj97h7khb1jpmaii5.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.emasEco.Ecobreak"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
