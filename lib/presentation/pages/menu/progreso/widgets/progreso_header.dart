@@ -1,10 +1,20 @@
 import 'package:flutter/material.dart';
 
 class ProgresoHeader extends StatelessWidget {
-  const ProgresoHeader({super.key});
+  final int completadas;
+  final bool esMensual; // true = mes (180), false = semana (45)
+  const ProgresoHeader({
+    super.key,
+    required this.completadas,
+    this.esMensual = false,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final int total = esMensual ? 45 * 4 : 45;
+    final int pendientes = (total - completadas).clamp(0, total);
+    final double cumplimiento = total > 0 ? (completadas / total) * 100 : 0;
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Container(
@@ -15,17 +25,19 @@ class ProgresoHeader extends StatelessWidget {
           children: [
             Flexible(
               flex: 1,
-              child: _buildStatCard('78%', 'Cumplimiento', Colors.blue),
+              child: _buildStatCard('${cumplimiento.toStringAsFixed(0)}%',
+                  'Cumplimiento', Colors.blue),
             ),
             const SizedBox(width: 8),
             Flexible(
               flex: 1,
-              child: _buildStatCard('42', 'Completadas', Colors.green),
+              child:
+                  _buildStatCard('$completadas', 'Completadas', Colors.green),
             ),
             const SizedBox(width: 8),
             Flexible(
               flex: 1,
-              child: _buildStatCard('12', 'Pendientes', Colors.orange),
+              child: _buildStatCard('$pendientes', 'Pendientes', Colors.orange),
             ),
           ],
         ),

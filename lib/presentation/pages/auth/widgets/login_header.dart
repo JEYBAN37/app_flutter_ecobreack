@@ -12,7 +12,14 @@ class LoginHeader extends StatelessWidget {
     return Container(
       height: isPortrait ? size.height * 0.4 : size.height * 0.3,
       decoration: const BoxDecoration(
-        color: AppStyles.primaryColor,
+        gradient: LinearGradient(
+          colors: [
+            Color(0xFF0067AC),
+            Color(0xFF0085DC),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(40),
           bottomRight: Radius.circular(40),

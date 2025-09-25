@@ -1,3 +1,4 @@
+import 'package:ecoapp/data/repositories/network/api_service.dart';
 import 'package:flutter/material.dart';
 import 'widgets/progreso_header.dart';
 import 'widgets/progreso_stats.dart';
@@ -12,6 +13,42 @@ class ProgresoPage extends StatefulWidget {
 
 class _ProgresoPageState extends State<ProgresoPage> {
   bool _isWeekView = true; // true = semana, false = mes
+  late dynamic _exerciseHistory;
+  Map<String, int> groupedByDay = {};
+  Map<String, int> groupedByCategory = {};
+  int totalActivities = 0;
+  @override
+  void initState() {
+    super.initState();
+    final dates = getWeekStartEndDates();
+    getUserExerciseHistory(dates['startDate'], dates['endDate']);
+  }
+
+  getWeekStartEndDates() {
+    final now = DateTime.now();
+    // Lunes = 1, Domingo = 7
+    final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+    final endOfWeek = startOfWeek.add(const Duration(days: 6));
+    String format(DateTime d) =>
+        "${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}";
+    return {
+      'startDate': format(startOfWeek),
+      'endDate': format(endOfWeek),
+    };
+  }
+
+  getUserExerciseHistory(String startDate, String endDate) async {
+    _exerciseHistory =
+        await ApiService().fetchUserExerciseHistory(startDate, endDate);
+    groupedByDay =
+        Map<String, int>.from(_exerciseHistory['groupedByDay'] ?? {});
+    groupedByCategory =
+        Map<String, int>.from(_exerciseHistory['groupedByCategory'] ?? {});
+
+    totalActivities = _exerciseHistory['totalActivities'] ?? 0;
+    debugPrint("Exercise history fetched: $_exerciseHistory");
+    setState(() {}); // <-- Esto refresca la UI
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,10 +69,10 @@ class _ProgresoPageState extends State<ProgresoPage> {
   Widget _buildHeader() {
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xFF0067AC),
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(30),
-          bottomRight: Radius.circular(30),
+        gradient: LinearGradient(
+          colors: [Color(0xFF0067AC), Color(0xFF0085DC)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
         border: Border(
           bottom: BorderSide(
@@ -82,12 +119,12 @@ class _ProgresoPageState extends State<ProgresoPage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF0067AC).withAlpha(15),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-              spreadRadius: 2,
-            ),
+          BoxShadow(
+            color: const Color(0xFF0067AC).withAlpha(15),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+            spreadRadius: 2,
+          ),
         ],
       ),
       child: Stack(
@@ -96,7 +133,8 @@ class _ProgresoPageState extends State<ProgresoPage> {
           AnimatedAlign(
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeInOut,
-            alignment: _isWeekView ? Alignment.centerLeft : Alignment.centerRight,
+            alignment:
+                _isWeekView ? Alignment.centerLeft : Alignment.centerRight,
             child: Container(
               width: MediaQuery.of(context).size.width * 0.43,
               height: 45,
@@ -124,13 +162,27 @@ class _ProgresoPageState extends State<ProgresoPage> {
                 text: 'SEMANA',
                 icon: Icons.calendar_view_week,
                 isSelected: _isWeekView,
-                onTap: () => setState(() => _isWeekView = true),
+                onTap: () => setState(() {
+                  _isWeekView = true;
+                  final dates = getWeekStartEndDates();
+                  getUserExerciseHistory(dates['startDate'], dates['endDate']);
+                }),
               ),
               _buildSwitchTab(
                 text: 'MES',
                 icon: Icons.calendar_month,
                 isSelected: !_isWeekView,
-                onTap: () => setState(() => _isWeekView = false),
+                onTap: () => setState(() {
+                  _isWeekView = false;
+                  final now = DateTime.now();
+                  final firstDayOfMonth = DateTime(now.year, now.month, 1);
+                  final lastDayOfMonth = DateTime(now.year, now.month + 1, 0);
+                  String format(DateTime d) =>
+                      "${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}";
+                  final firstDayStr = format(firstDayOfMonth);
+                  final lastDayStr = format(lastDayOfMonth);
+                  getUserExerciseHistory(firstDayStr, lastDayStr);
+                }),
               ),
             ],
           ),
@@ -177,14 +229,20 @@ class _ProgresoPageState extends State<ProgresoPage> {
   }
 
   Widget _buildMainContent() {
+    final bool noData = groupedByDay.isEmpty && groupedByCategory.isEmpty;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const ProgresoHeader(),
+          ProgresoHeader(
+            completadas: totalActivities,
+            esMensual: !_isWeekView, // o true para mensual (180)
+          ),
           const SizedBox(height: 24),
-          const ProgresoStats(),
+          ProgresoStats(
+              groupedByCategory: groupedByCategory, esMensual: !_isWeekView),
           const SizedBox(height: 24),
           Container(
             padding: const EdgeInsets.all(16),
@@ -212,9 +270,23 @@ class _ProgresoPageState extends State<ProgresoPage> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                SizedBox(  // Removed const since ProgresoChart isn't const
+                SizedBox(
                   height: 200,
-                  child: ProgresoChart(),
+                  child: noData
+                      ? const Center(
+                          child: Text(
+                            'Aún no hay datos para mostrar.\n¡Comienza tu primera rutina!',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 16,
+                            ),
+                          ),
+                        )
+                      : ProgresoChart(
+                          groupedByDay: groupedByDay,
+                          modo: _isWeekView ? 'semana' : 'mes',
+                        ),
                 ),
               ],
             ),

@@ -1,9 +1,18 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:developer' as developer;
 import 'package:dio/dio.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http/http.dart' as http;
 
 class ApiService {
   String? _cachedBaseUrl;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  static const _storage = FlutterSecureStorage();
+  final http.Client _client = http.Client();
+  final Duration _timeout = const Duration(seconds: 30);
 
   Future<String> resolveBaseUrl() async {
     if (_cachedBaseUrl != null) {
@@ -11,62 +20,17 @@ class ApiService {
           name: 'ApiService');
       return _cachedBaseUrl!;
     }
-
-    try {
-      developer.log('🔍 Solicitando IP dinámica al backend...',
-          name: 'ApiService');
-      final response = await Dio().get('http://localhost:4300/network-info');
-      if (response.statusCode == 200 && response.data != null) {
-        _cachedBaseUrl =
-            'http://${response.data['ip']}:${response.data['port']}';
-        developer.log('✅ Base URL resuelta: $_cachedBaseUrl',
-            name: 'ApiService');
-        return _cachedBaseUrl!;
-      } else {
-        developer.log(
-            '❌ No se pudo obtener la IP del backend. Código: ${response.statusCode}',
-            name: 'ApiService',
-            level: 1000);
-        throw Exception('No se pudo obtener la IP del backend.');
-      }
-    } catch (e) {
-      developer.log('❌ Error al resolver la URL base: $e',
-          name: 'ApiService', level: 1000);
-      return 'http://localhost:4300'; // Valor predeterminado
-    }
+    return 'https://backeco-zwl8.onrender.com'; // Valor predeterminado
   }
 
   Future<bool> checkBackendHealth() async {
-    try {
-      final baseUrl = await resolveBaseUrl();
-      developer.log('🔍 Verificando salud del backend en: $baseUrl/app-health',
-          name: 'ApiService');
-
-      final response = await Dio().get('$baseUrl/app-health');
-      if (response.statusCode == 200 && response.data['status'] == true) {
-        developer.log('✅ Backend está saludable.', name: 'ApiService');
-        return true;
-      } else {
-        developer.log(
-          '⚠️ Backend no está saludable. Código: ${response.statusCode}, Respuesta: ${response.data}',
-          name: 'ApiService',
-          level: 900,
-        );
-        return false;
-      }
-    } catch (e) {
-      developer.log(
-        '❌ Error al verificar la salud del backend: $e',
-        name: 'ApiService',
-        level: 1000,
-      );
-      return false;
-    }
+    return true; // Siempre retorna true en modo local
   }
 
   Future<void> testConnection() async {
     try {
-      final response = await Dio().get('http://localhost:4300');
+      final response =
+          await Dio().get('https://backeco-zwl8.onrender.com');
       if (response.statusCode == 200) {
         developer.log('✅ Conexión al backend exitosa: ${response.data}',
             name: 'ApiService');
@@ -82,27 +46,7 @@ class ApiService {
     }
   }
 
-  Future<void> testConnectionWithLogs() async {
-    try {
-      final baseUrl = await resolveBaseUrl();
-      final response = await Dio().get('$baseUrl/app-health');
-      if (response.statusCode == 200 && response.data['status'] == true) {
-        // Log verde con emoji de éxito
-        developer.log('✅ Conexión al backend exitosa: ${response.data}',
-            name: 'ApiService');
-      } else {
-        // Log rojo con emoji de error
-        developer.log(
-            '❌ Fallo en la conexión al backend: Código ${response.statusCode}',
-            name: 'ApiService',
-            level: 900);
-      }
-    } catch (e) {
-      // Log rojo con emoji de error
-      developer.log('❌ Error al conectar con el backend: $e',
-          name: 'ApiService', level: 1000);
-    }
-  }
+  Future<void> testConnectionWithLogs() async {}
 
   Future<bool> checkConnectivity() async {
     return true; // Siempre retorna true en modo local
@@ -112,46 +56,55 @@ class ApiService {
     // Nada que cerrar en modo local
   }
 
-  Future<Map<String, dynamic>?> postRequest(
+  // ...existing code...
+  Future<String?> postRequest(
     String endpoint,
     Map<String, dynamic> body,
   ) async {
+    final baseUrl = await resolveBaseUrl();
     try {
-      final baseUrl = await resolveBaseUrl();
       final response = await Dio().post(
         '$baseUrl/$endpoint',
         data: body,
         options: Options(headers: {"Content-Type": "application/json"}),
       );
-      if (response.statusCode == 200) {
-        return {
-          "success": true,
-          "data": response.data,
-        };
-      } else {
-        developer.log(
-          '⚠️ Error en POST: Código ${response.statusCode}',
-          name: 'ApiService',
-        );
-        return null;
+      return response.data['message']?.toString();
+    } on DioException catch (e) {
+      // Si el backend envía un JSON de error, lo retornamos
+      if (e.response?.data is Map<String, dynamic>) {
+        return e.response?.data['error']?.toString();
       }
-    } catch (e) {
-      developer.log(
-        '❌ Error en POST: $e',
-        name: 'ApiService',
-      );
-      return null;
+      // Si no hay JSON, retornamos el mensaje de error
+      return e.message;
     }
   }
 
+// ...existing code...
   Future<Map<String, dynamic>?> getStats() async {
-    // Devuelve estadísticas simuladas
+    final idUser = await _storage.read(key: 'admin_userId');
+    final currentDate = DateTime.now();
+    final formattedDate =
+        "${currentDate.year.toString().padLeft(4, '0')}-${currentDate.month.toString().padLeft(2, '0')}-${currentDate.day.toString().padLeft(2, '0')}";
+    final response =
+        await get('/admin/users/$idUser/stats?date=$formattedDate');
     return {
-      "activities_done": 2,
-      "total_activities": 5,
-      "total_time": 120,
-      "user": "Usuario Local"
+      "activities_done": response['data']['activities_done'],
+      "total_activities": response['data']['total_activities'],
+      "total_time": response['data']['total_time'],
     };
+  }
+
+  Future fetchUserExerciseHistory(String startDate, String endDate) async {
+    final idUser = await _storage.read(key: 'admin_userId');
+    final response = await get(
+        '/user/exercise-history/$idUser/exercises?startDate=$startDate&endDate=$endDate');
+    return response['data'];
+  }
+
+  Future fetchUserHistory() async {
+    final idUser = await _storage.read(key: 'admin_userId');
+    final response = await get('/user/exercise-history/$idUser/history');
+    return response['data'];
   }
 
   Future<Map<String, dynamic>?> fetchActivities() async {
@@ -183,13 +136,118 @@ class ApiService {
     };
   }
 
-  Future<Map<String, dynamic>?> fetchActiveProcesses() async {
-    // Devuelve procesos activos simulados
-    return {
-      "data": [
-        {"id": 1, "process": "Carga de datos", "status": "activo"},
-      ]
-    };
+  Future<Map<String, dynamic>?> postActivities(activities) async {
+    try {
+      final baseUrl = await resolveBaseUrl();
+      final jsonBody = json.encode(activities);
+      final token = await _storage.read(key: 'admin_token');
+      final response = await Dio().post(
+          '$baseUrl/admin/categorias/get-categories-with-exercises',
+          data: jsonBody,
+          options: Options(headers: {"Authorization": "Bearer $token"}));
+      if (response.statusCode == 201 && response.data is Map<String, dynamic>) {
+        return response.data;
+      } else {
+        debugPrint('Error: Código de estado ${response.statusCode}');
+        return {
+          'error': true,
+          'message': 'Error en la respuesta del servidor',
+          'statusCode': response.statusCode,
+        };
+      }
+    } on DioException catch (e) {
+      debugPrint('DioException: ${e.message}');
+      return {
+        'error': true,
+        'message': e.message,
+        'details': e.response?.data,
+      };
+    } catch (e) {
+      debugPrint('Error inesperado: $e');
+      return {
+        'error': true,
+        'message': 'Error inesperado',
+        'details': e.toString(),
+      };
+    }
+  }
+
+  Future loadActivityToHistory(userData) async {
+    try {
+      final baseUrl = await resolveBaseUrl();
+      final jsonBody = json.encode(userData);
+      final token = await _storage.read(key: 'admin_token');
+      final response = await Dio().post('$baseUrl/user/exercise-history',
+          data: jsonBody,
+          options: Options(headers: {"Authorization": "Bearer $token"}));
+      if (response.statusCode == 201 && response.data is Map<String, dynamic>) {
+        debugPrint('Actividad completada: ${response.data}');
+        return response.data;
+      } else {
+        debugPrint('Error: Código de estado ${response.statusCode}');
+        return {
+          'error': true,
+          'message': 'Error en la respuesta del servidor',
+          'statusCode': response.statusCode,
+        };
+      }
+    } on DioException catch (e) {
+      debugPrint('DioException: ${e.message}');
+      return {
+        'error': true,
+        'message': e.message,
+        'details': e.response?.data,
+      };
+    } catch (e) {
+      debugPrint('Error inesperado: $e');
+      return {
+        'error': true,
+        'message': 'Error inesperado',
+        'details': e.toString(),
+      };
+    }
+  }
+
+  Future loadActivityComplete(user, plan, group) async {
+    try {
+      final baseUrl = await resolveBaseUrl();
+      final jsonBody = json.encode({
+        'userId': user,
+        'plan': plan,
+        'grupo': group,
+      });
+      debugPrint('Cargando actividades para el grupo: $jsonBody');
+      final token = await _storage.read(key: 'admin_token');
+      final response = await Dio().post(
+          '$baseUrl/user/exercise-history/by-user',
+          data: jsonBody,
+          options: Options(headers: {"Authorization": "Bearer $token"}));
+      if (response.statusCode == 201 && response.data is Map<String, dynamic>) {
+        debugPrint('Actividad completada: ${response.data}');
+        return response.data;
+      } else {
+        debugPrint('Error: Código de estado ${response.statusCode}');
+        return {
+          'error': true,
+          'message': 'Error en la respuesta del servidor',
+          'statusCode': response.statusCode,
+        };
+      }
+    } on DioException catch (e) {
+      debugPrint('DioException: ${e.message}');
+      return {
+        'error': true,
+        'message': e.message,
+        'details': e.response?.data,
+      };
+    } catch (e) {
+      debugPrint('Error inesperado: $e');
+      return {
+        'error': true,
+        'message': 'Error inesperado',
+        'details': e.toString(),
+      };
+    }
   }
 
   Future<Map<String, dynamic>> getUserInfo() async {
@@ -231,5 +289,51 @@ class ApiService {
         "status": "realizada"
       }
     ];
+  }
+
+  Future<Map<String, dynamic>> get(
+    String endpoint, {
+    Map<String, String>? headers,
+    Map<String, dynamic>? query,
+  }) async {
+    try {
+      final baseUrl = await resolveBaseUrl();
+      String? token = await _storage.read(key: 'admin_token');
+      final Uri uri = Uri.parse(
+        '$baseUrl$endpoint',
+      ).replace(queryParameters: query);
+
+      final requestHeaders = {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+        ...?headers,
+      };
+
+      final response =
+          await _client.get(uri, headers: requestHeaders).timeout(_timeout);
+
+      debugPrint('🔍 GET $uri');
+
+      // Handle authentication errors
+      if (response.statusCode == 401) {
+        developer.log(
+            '🔒 Token inválido o expirado. Por favor, inicia sesión de nuevo.',
+            name: 'ApiService',
+            level: 900);
+        throw Exception('Unauthorized');
+      }
+
+      final responseData = json.decode(response.body);
+      if (response.statusCode == 200 && responseData['status'] == true) {
+        return responseData;
+      }
+      throw Exception(
+        responseData['message'] ?? 'Error en la respuesta del servidor',
+      );
+    } catch (e) {
+      debugPrint('❌ Error en petición GET: $e');
+      rethrow;
+    }
   }
 }

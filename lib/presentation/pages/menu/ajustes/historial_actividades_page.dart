@@ -1,7 +1,42 @@
+import 'package:ecoapp/data/repositories/network/api_service.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart';
 
-class HistorialActividadesPage extends StatelessWidget {
+class HistorialActividadesPage extends StatefulWidget {
   const HistorialActividadesPage({super.key});
+
+  @override
+  State<HistorialActividadesPage> createState() =>
+      _HistorialActividadesPageState();
+}
+
+class _HistorialActividadesPageState extends State<HistorialActividadesPage> {
+  List<dynamic> _exerciseHistory = [];
+  bool _isLoading = true; // <-- Nueva variable de carga
+
+  @override
+  void initState() {
+    super.initState();
+    getHistorial();
+  }
+
+  getHistorial() async {
+    // Aquí iría la lógica para obtener el historial de actividades
+    setState(() {
+      _isLoading = true;
+    });
+    final response = await ApiService().fetchUserHistory();
+    if (response != null) {
+      setState(() {
+        _exerciseHistory = response ?? [];
+        _isLoading = false;
+      });
+    } else {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -11,7 +46,13 @@ class HistorialActividadesPage extends StatelessWidget {
           children: [
             _buildHeader(context),
             Expanded(
-              child: _buildEmptyState(),
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF0067AC),
+                      ),
+                    )
+                  : _buildHistorialList(),
             ),
           ],
         ),
@@ -137,5 +178,123 @@ class HistorialActividadesPage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _buildHistorialList() {
+    if (_exerciseHistory.isEmpty) {
+      return _buildEmptyState();
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: _exerciseHistory.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 16),
+      itemBuilder: (context, index) {
+        final actividad = _exerciseHistory[index];
+        final categoria = actividad['categoria'] ?? '';
+        final icon = _getCategoriaIcon(categoria);
+        final color = _getCategoriaColor(categoria);
+
+        return Container(
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withOpacity(0.2)),
+          ),
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundColor: color.withOpacity(0.18),
+              child: Icon(icon, color: color, size: 28),
+            ),
+            title: Text(
+              actividad['nombre'] ?? '',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontFamily: 'HelveticaRounded',
+                fontSize: 16,
+              ),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  actividad['plan'] ?? '',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Colors.black54,
+                    fontFamily: 'HelveticaRounded',
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(Icons.timer, size: 16, color: color),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${actividad['tiempo'] ?? 0} min',
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                    const SizedBox(width: 12),
+                    Icon(Icons.event, size: 16, color: color),
+                    const SizedBox(width: 4),
+                    Text(
+                      actividad['finalizacion'] ?? '',
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+// Iconos y colores por categoría (igual que en progreso)
+  IconData _getCategoriaIcon(String categoria) {
+    switch (categoria) {
+      case 'Visual':
+        return Icons.visibility;
+      case 'Auditiva':
+        return Icons.hearing;
+      case 'Cognitiva':
+        return Icons.psychology;
+      case 'Accesibilidad':
+        return Icons.accessibility_new;
+      case 'Tren Superior':
+        return Icons.accessibility_new;
+      case 'Tren Inferior':
+        return Icons.directions_walk;
+      case 'Movilidad Articular':
+      case 'Movilidad':
+        return Icons.self_improvement;
+      case 'Estiramientos Generales':
+        return Icons.extension;
+      default:
+        return Icons.category;
+    }
+  }
+
+  Color _getCategoriaColor(String categoria) {
+    switch (categoria) {
+      case 'Visual':
+        return const Color(0xFF4FC3F7); // Azul claro
+      case 'Auditiva':
+        return const Color(0xFF9575CD); // Morado
+      case 'Cognitiva':
+        return const Color(0xFFFFB74D); // Naranja
+      case 'Accesibilidad':
+      case 'Tren Superior':
+        return const Color(0xFF1976D2); // Azul fuerte
+      case 'Tren Inferior':
+        return const Color(0xFFC6DA23); // Verde claro
+      case 'Movilidad Articular':
+      case 'Movilidad':
+        return const Color(0xFF26C6DA); // Turquesa
+      case 'Estiramientos Generales':
+        return const Color(0xFFFF8A65); // Naranja suave
+      default:
+        return Colors.grey;
+    }
   }
 }

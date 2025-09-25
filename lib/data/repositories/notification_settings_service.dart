@@ -1,13 +1,14 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ecoapp/data/repositories/network/api_service.dart';
 
 class NotificationSettingsService {
   final ApiService _apiService = ApiService(); // Instancia de ApiService
 
-  Future<bool> updateNotificationSettings() async {
+  Future<bool> updateNotificationSettings(id) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = await FirebaseAuth.instance.currentUser?.getIdToken();
@@ -17,17 +18,16 @@ class NotificationSettingsService {
         throw Exception('No authentication token available');
       }
 
-      final response = await Dio().patch(
-        '$baseUrl/user/notification-settings',
+      final response = await Dio().put(
+        '$baseUrl/admin/notification-plans/interruptions/$id',
         data: {
-          "notificationsEnabled":
-              prefs.getBool('notificacionesActivas') ?? true,
-          "frequency": prefs.getString('frecuencia') ?? '1',
-          "activeBreaks": prefs.getBool('pausasActivas') ?? true,
-          "startHour": prefs.getInt('horaInicio_hour') ?? 8,
-          "startMinute": prefs.getInt('horaInicio_minute') ?? 0,
-          "endHour": prefs.getInt('horaFin_hour') ?? 17,
-          "endMinute": prefs.getInt('horaFin_minute') ?? 0,
+          "notifiPauseActive": prefs.getBool('notificacionesActivas') ?? true,
+          "frecuencia": prefs.getString('frecuencia') ?? '4',
+          "notifiActive": prefs.getBool('pausasActivas') ?? true,
+          "dateStart":
+              '${(prefs.getString('horaInicio_hour') ?? '08')}:${prefs.getString('horaInicio_minute') ?? '00'}',
+          "dateEnd":
+              '${(prefs.getString('horaFin_hour') ?? '17')}:${prefs.getString('horaFin_minute') ?? '00'}',
         },
         options: Options(headers: {
           'Authorization': 'Bearer $token',
@@ -38,6 +38,31 @@ class NotificationSettingsService {
     } catch (e) {
       debugPrint('Error updating notification settings: $e');
       return false;
+    }
+  }
+
+  Future fetchNotificationSettings(String userId) async {
+    try {
+      final response = await _apiService
+          .get('/admin/notification-plans/interruptions/$userId');
+      return response['data'];
+    } catch (e) {
+      debugPrint('Error fetching notification settings: $e');
+      return null;
+    }
+  }
+
+  Future createNotificationChannel(id) async {
+    try {
+      await _apiService.postRequest('admin/notification-plans/interruptions', {
+        "idUser": id,
+        "dateEnd": "23:59",
+        "dateStart": "00:00",
+        "frecuencia": "4",
+      });
+    } catch (e) {
+      debugPrint('Error requesting notification permission: $e');
+      return null;
     }
   }
 }

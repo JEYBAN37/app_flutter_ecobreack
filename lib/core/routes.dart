@@ -1,3 +1,5 @@
+import 'package:ecoapp/presentation/pages/menu/ajustes/calibration_screen.dart';
+import 'package:ecoapp/presentation/pages/menu/descubre/descubre_actual.dart';
 import 'package:flutter/material.dart';
 
 // Pages imports
@@ -34,23 +36,27 @@ class Routes {
   static const String actividades = '/actividades';
   static const String progreso = '/progreso';
   static const String descubre = '/descubre';
+  static const String calibracionSensores = '/calibracion-sensores';
 }
 
 /// App routes map
 Map<String, Widget Function(BuildContext)> get appRoutes => {
-  Routes.home: (context) => const HomePage(),
-  Routes.register: (context) => const RegisterPage(),
-  Routes.login: (context) => const LoginPage(),
-  Routes.forgotPassword: (context) => const ForgotPasswordPage(),
-  Routes.menu: (context) => const MenuPrincipal(),
-  Routes.usuario: (context) => const UsuarioPage(),
-  Routes.ajustes: (context) => const AjustesPage(),
-  Routes.perfil: (context) => const EditPerfilPage(),
-  Routes.notificaciones: (context) => const NotificacionesPage(),
-  Routes.historialActividades: (context) => const HistorialActividadesPage(),
-  Routes.historialNotificaciones: (context) => const HistorialNotificacionesPage(),
-  Routes.notificacionesLista: (context) => const NotificacionListaPage(),
-  Routes.actividades: (context) => const ActividadesPage(),
-  Routes.progreso: (context) => const ProgresoPage(),
-  Routes.descubre: (context) => const DescubrePage(),
-};
+      Routes.home: (context) => const HomePage(),
+      Routes.register: (context) => const RegisterPage(),
+      Routes.login: (context) => const LoginPage(),
+      Routes.forgotPassword: (context) => const ForgotPasswordPage(),
+      Routes.menu: (context) => const MenuPrincipal(),
+      Routes.usuario: (context) => const UsuarioPage(),
+      Routes.ajustes: (context) => const AjustesPage(),
+      Routes.perfil: (context) => const EditPerfilPage(),
+      Routes.notificaciones: (context) => const NotificacionesPage(),
+      Routes.historialActividades: (context) =>
+          const HistorialActividadesPage(),
+      Routes.historialNotificaciones: (context) =>
+          const NotificationHistoryScreen(),
+      Routes.notificacionesLista: (context) => const NotificacionListaPage(),
+      Routes.actividades: (context) => const ActividadesPage(),
+      Routes.progreso: (context) => const ProgresoPage(),
+      Routes.descubre: (context) => const DescubreActual(),
+      Routes.calibracionSensores: (context) => const CalibrationScreen(),
+    };

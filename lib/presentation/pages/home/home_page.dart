@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:ecoapp/data/repositories/network/api_service.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'custom_clipper.dart';
 import 'dart:developer' as developer;
 
@@ -17,40 +18,40 @@ class _HomePageState extends State<HomePage> {
   bool _isBlinking = false;
   bool _isCheckingHealth = false;
   late Timer _timer;
+  static const _storage = FlutterSecureStorage();
 
   @override
   void initState() {
     super.initState();
-    _checkBackendConnection();
-    _timer = Timer.periodic(
-      const Duration(seconds: 5),
-      (_) => _checkBackendConnection(),
-    );
+    _timer = Timer.periodic(const Duration(seconds: 2), (timer) async {
+      await _checkBackendConnection();
+    });
   }
 
   Future<void> _checkBackendConnection() async {
-    if (_isCheckingHealth) return;
-    _isCheckingHealth = true;
-
     developer.log('🔍 Iniciando verificación de conexión al backend...',
         name: 'HomePage');
 
     try {
-      final bool isConnected = await _apiService.checkBackendHealth();
-      developer.log('🔍 Resultado de checkBackendHealth: $isConnected',
-          name: 'HomePage');
+      final token = await _storage.read(key: 'admin_token');
+      developer.log('🔑 Token encontrado: $token', name: 'HomePage');
 
       setState(() {
-        _isConnected = isConnected;
-        _isBlinking = !isConnected;
+        _isConnected = token != null;
+        _isBlinking = !(_isConnected);
       });
 
-      if (isConnected) {
-        developer.log('✅ Conexión establecida con el backend.',
+      if (token != null) {
+        developer.log(
+            '✅ Conexión establecida con el backend. Navegando al home...',
             name: 'HomePage');
-        _timer.cancel(); // Detén el timer si la conexión es exitosa
+        if (mounted) {
+          _timer.cancel(); // Detén el timer antes de navegar
+          Navigator.pushReplacementNamed(context, '/menu');
+        }
       } else {
-        developer.log('❌ No se pudo conectar al backend.', name: 'HomePage');
+        developer.log('❌ No se pudo conectar al backend. Token no encontrado.',
+            name: 'HomePage');
         Future.delayed(const Duration(milliseconds: 500), () {
           if (mounted) {
             setState(() {

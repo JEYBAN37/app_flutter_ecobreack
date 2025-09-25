@@ -1,12 +1,68 @@
+import 'dart:io';
+import 'package:ecoapp/presentation/pages/menu/notificaciones/app_notification.dart';
+import 'package:ecoapp/presentation/pages/menu/notificaciones/notification_storage.dart';
+import 'package:ecoapp/presentation/pages/menu/notificaciones/notification_utils.dart'
+    as notificationUtils;
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'core/route_observer.dart';
+import 'package:ecoapp/data/repositories/auth_repository.dart';
+import 'package:ecoapp/presentation/pages/splash_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'firebase_options.dart';
 import 'core/routes.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
 import 'dart:developer' as developer;
 
-void main() {
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  final notif = AppNotification(
+    title: message.notification?.title ?? 'Sin título',
+    body: message.notification?.body ?? 'Sin cuerpo',
+    date: DateTime.now(),
+  );
+
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
+
+  debugPrint('Manejador en segundo plano: $notif');
+  await NotificationStorage.saveNotification(notif);
+
+  final dentroHorario = await notificationUtils.isDentroHorarioPermitido();
+  if (dentroHorario) {
+    debugPrint('Notificación mostrada al usuario (dentro del horario)');
+    // Mostrar notificación local solo si está dentro del horario
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      'default_channel',
+      'Notificaciones',
+      channelDescription: 'Canal para notificaciones EcoBreak',
+      importance: Importance.max,
+      priority: Priority.high,
+      showWhen: true,
+    );
+    const NotificationDetails platformChannelSpecifics =
+        NotificationDetails(android: androidPlatformChannelSpecifics);
+    await flutterLocalNotificationsPlugin.show(
+      notif.date.millisecondsSinceEpoch ~/ 1000,
+      notif.title,
+      notif.body,
+      platformChannelSpecifics,
+    );
+  } else {
+    debugPrint(
+        'Notificación filtrada: solo guardada en historial (fuera de horario)');
+  }
+}
+
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  AuthRepository().requestNotificationPermission();
+  AuthRepository().setupFCMListeners();
   runApp(const AppInitializer());
 }
 
@@ -51,13 +107,9 @@ class _AppInitializerState extends State<AppInitializer> {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const MaterialApp(
-            home: Scaffold(
-              backgroundColor: Colors.white,
-              body: Center(child: CircularProgressIndicator()),
-            ),
+            home: SplashScreen(),
           );
         }
-
         return const MyApp();
       },
     );
@@ -70,6 +122,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorObservers: [routeObserver],
       debugShowCheckedModeBanner: false,
       title: 'EcoBreak App',
       theme: ThemeData(primarySwatch: Colors.blueGrey),

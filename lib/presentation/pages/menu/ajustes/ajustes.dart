@@ -75,6 +75,12 @@ class AjustesPage extends StatelessWidget {
                           Icons.notifications,
                           '/notificaciones',
                         ),
+                        _buildSettingButton(
+                          context,
+                          'Calibración de Sensores',
+                          Icons.sensors,
+                          '/calibracion-sensores',
+                        ),
                       ],
                     ),
                     const SizedBox(height: 20),
@@ -213,7 +219,9 @@ class AjustesPage extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: isDouble ? const Color(0xFFC6DA23) : const Color(0xFF0067AC),
+                  color: isDouble
+                      ? const Color(0xFFC6DA23)
+                      : const Color(0xFF0067AC),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
