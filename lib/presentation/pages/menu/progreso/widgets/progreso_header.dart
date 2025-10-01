@@ -11,7 +11,7 @@ class ProgresoHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final int total = esMensual ? 45 * 4 : 45;
+    final int total = esMensual ? 140 * 4 : 140;
     final int pendientes = (total - completadas).clamp(0, total);
     final double cumplimiento = total > 0 ? (completadas / total) * 100 : 0;
 

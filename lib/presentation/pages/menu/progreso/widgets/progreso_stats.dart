@@ -21,18 +21,16 @@ class ProgresoStats extends StatelessWidget {
 
   static Color getCardColor(String category) {
     switch (category) {
-      case 'Visual':
+      case 'Visibilidad':
         return const Color(0xFF4FC3F7); // Azul claro
-      case 'Auditiva':
+      case 'Audición':
         return const Color(0xFF9575CD); // Morado
       case 'Cognitiva':
         return const Color(0xFFFFB74D); // Naranja
-      case 'Accesibilidad':
       case 'Tren Superior':
         return const Color(0xFF1976D2); // Azul fuerte
       case 'Tren Inferior':
         return const Color(0xFFC6DA23); // Verde claro
-      case 'Movilidad Articular':
       case 'Movilidad':
         return const Color(0xFF26C6DA); // Turquesa
       case 'Estiramientos Generales':
@@ -46,18 +44,16 @@ class ProgresoStats extends StatelessWidget {
   Widget build(BuildContext context) {
     // Lista de categorías a mostrar (puedes ajustar el orden aquí)
     final categorias = [
-      'Accesibilidad',
       'Tren Superior',
       'Tren Inferior',
-      'Movilidad Articular',
       'Estiramientos Generales',
-      'Visual',
-      'Auditiva',
+      'Visibilidad',
+      'Audición',
       'Cognitiva',
       'Movilidad',
     ];
 
-    final divisor = esMensual ? 20 : 5;
+    final divisor = esMensual ? 50 : 20;
 
     // Calcular suma total según reglas
     int sumaActividades = 0;
@@ -141,7 +137,7 @@ class ProgresoStats extends StatelessWidget {
             // En semanal muestra máximo 5, en mensual muestra el valor real
             final fraccion = esMensual
                 ? '$value/$divisor'
-                : '${value > 5 ? 5 : value}/$divisor';
+                : '${value > 20 ? 50 : value}/$divisor';
             return Padding(
               padding: const EdgeInsets.only(bottom: 16),
               child: _buildProgressBar(

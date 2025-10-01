@@ -148,19 +148,24 @@ class _DescubreActualState extends State<DescubreActual> with RouteAware {
       final groupId = userData?['groupId'] ?? '';
       final result =
           await ConsultasActividades().cargarActividadReciente(groupId);
-          
-      debugPrint('Actividades cargadas: $result');
-      fetchedActivities = await UtilidadesCategorias.agruparPorTituloIconoSync(
-          result, 'JQVll1ZaWOrmT018typp');
 
-      nombrePlan = result[0]['nombre'] ?? 'Plan del Día';
+      fetchedActivities = await UtilidadesCategorias.agruparPorTituloIconoSync(
+          result['categorias'], result['proceso'] ?? '');
+
+      if (result['categorias'].every((item) => item["estado"] == false)) {
+        print("✅ Todos los estados son false. Ejecutar acción.");
+        // aquí tu acción
+      } 
+
+      nombrePlan = result['categorias'][0]['nombre'] ?? 'Plan del Día';
       setState(() {
         fetchedActivities = fetchedActivities;
         _isLoading = false; // <-- Actualiza el estado de carga
       });
     } catch (e) {
       setState(() {
-        _isLoading = false; // Asegúrate de actualizar el estado incluso en error
+        _isLoading =
+            false; // Asegúrate de actualizar el estado incluso en error
       });
       debugPrint('Error al cargar actividades: $e');
     }

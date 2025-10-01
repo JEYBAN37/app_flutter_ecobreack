@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:dio/dio.dart';
 import 'package:ecoapp/data/repositories/network/api_service.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class EditPerfilPage extends StatefulWidget {
   const EditPerfilPage({super.key});
@@ -16,7 +17,7 @@ class _EditPerfilPageState extends State<EditPerfilPage> {
   late TextEditingController _lastNameController;
   late TextEditingController _emailController;
   Color _selectedColor = const Color(0xFF0067AC);
-
+  static const _storage = FlutterSecureStorage();
   final List<Color> _colorOptions = [
     const Color(0xFF0067AC),
     const Color(0xFFC6DA23),
@@ -42,16 +43,17 @@ class _EditPerfilPageState extends State<EditPerfilPage> {
 
   Future<void> _loadUserData() async {
     try {
-      final token = await FirebaseAuth.instance.currentUser?.getIdToken();
       final baseUrl = await _apiService.resolveBaseUrl();
-
+      final token = await _storage.read(key: 'admin_token');
       final response = await Dio().get(
-        '$baseUrl/user',
+        '$baseUrl/admin/users/',
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
+      debugPrint('User data fetched: ${response.data['data']}');
+
       if (response.statusCode == 200) {
-        final userData = response.data;
+        final userData = response.data['data'];
         setState(() {
           _nameController.text = userData['name'] ?? '';
           _lastNameController.text = userData['lastName'] ?? '';
@@ -77,11 +79,12 @@ class _EditPerfilPageState extends State<EditPerfilPage> {
       final baseUrl = await _apiService.resolveBaseUrl();
 
       await Dio().patch(
-        '$baseUrl/user/profile',
+        '$baseUrl/admin/users/profile',
         options: Options(headers: {'Authorization': 'Bearer $token'}),
         data: {
           'name': _nameController.text,
           'lastName': _lastNameController.text,
+          'email': _emailController.text,
           'avatarColor': _selectedColor.toARGB32(),
         },
       );
@@ -108,6 +111,7 @@ class _EditPerfilPageState extends State<EditPerfilPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
           children: [
@@ -299,7 +303,14 @@ class _EditPerfilPageState extends State<EditPerfilPage> {
                 labelText: 'Email',
                 icon: Icon(Icons.email),
               ),
-              enabled: false,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Este campo es requerido';
+                }
+                final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
+                if (!emailRegex.hasMatch(value)) return 'Email inválido';
+                return null;
+              },
             ),
           ],
         ),

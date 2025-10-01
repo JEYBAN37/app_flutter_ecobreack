@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:ecoapp/presentation/pages/menu/usuario/usuario_graficos.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class UsuarioPage extends StatelessWidget {
   const UsuarioPage({super.key});
+  static const _storage = FlutterSecureStorage();
 
   @override
   Widget build(BuildContext context) {
@@ -35,9 +37,13 @@ class UsuarioPage extends StatelessWidget {
           children: [
             _buildMenuButton(
               imagePath: 'assets/imagenes/menu/exit.png',
-              label: "Salir",
-              onPressed: () {
-                Navigator.pushNamed(context, '/menu');
+              label: "Cerrar Sesión",
+              onPressed: () async {
+                // borrar local storage
+                await _storage.deleteAll();
+                // navegar a login y eliminar historial
+                Navigator.pushNamedAndRemoveUntil(
+                    context, '/login', (route) => false);
               },
             ),
             _buildMenuButton(

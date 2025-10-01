@@ -203,11 +203,6 @@ class AuthRepository {
         await _storage.write(key: 'admin_password', value: password);
         // Guardar los datos de usuario en el storage como JSON
         await _storage.write(
-          key: 'admin_userdata',
-          value: jsonEncode(response['data']['userdata']),
-        );
-
-        await _storage.write(
           key: 'admin_userId',
           value: response['data']['id'],
         );

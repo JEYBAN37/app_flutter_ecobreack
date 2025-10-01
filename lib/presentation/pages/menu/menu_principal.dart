@@ -1,25 +1,81 @@
 import 'dart:convert';
 
+import 'package:dio/dio.dart';
+import 'package:ecoapp/data/repositories/network/api_service.dart';
 import 'package:ecoapp/presentation/pages/menu/ajustes/calibration_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:ecoapp/presentation/pages/menu/widgetsM/custom_bottom_bar.dart'; // Corrige la ruta de importación
+import 'package:ecoapp/presentation/pages/menu/widgetsM/custom_bottom_bar.dart'; 
+import 'package:ecoapp/core/route_observer.dart';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class MenuPrincipal extends StatelessWidget {
+class MenuPrincipal extends StatefulWidget {
   const MenuPrincipal({super.key});
-  static const _storage = FlutterSecureStorage();
+
+  @override
+  State<MenuPrincipal> createState() => _MenuPrincipalState();
+}
+
+class _MenuPrincipalState extends State<MenuPrincipal> with RouteAware {
+
+
+  final _storage = const FlutterSecureStorage();
+  final _apiService = ApiService();
+  late Future<Map<String, dynamic>?> _userFuture;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+        final route = ModalRoute.of(context);
+    if (route is PageRoute) {
+      routeObserver.subscribe(this, route);
+    }
+  }
+
+  @override
+  void didPopNext() {
+    // Se llama cuando regresas a esta pantalla
+    setState(() {
+      _userFuture = _getUserData();
+    });
+  }
+
+  @override
+  void dispose() {
+    routeObserver.unsubscribe(this);
+    super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _userFuture = _getUserData();
+  }
 
   Future<Map<String, dynamic>?> _getUserData() async {
-    final userDataString = await _storage.read(key: 'admin_userdata');
-    if (userDataString != null) {
-      return jsonDecode(userDataString) as Map<String, dynamic>;
+    final baseUrl = await _apiService.resolveBaseUrl();
+    final token = await _storage.read(key: 'admin_token');
+    try {
+      final response = await Dio().get(
+        '$baseUrl/admin/users/',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      print('Respuesta del backend: ${response}');
+      await _storage.write(
+        key: 'admin_userdata',
+        value: jsonEncode(response.data['data']),
+      );
+      final userDataString = await _storage.read(key: 'admin_userdata');
+      print('UserData guardado: $userDataString');
+      if (userDataString != null) {
+        return jsonDecode(userDataString) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      print('Error al obtener datos de usuario: $e');
     }
     return null;
   }
-
-  
 
   Future<bool> _checkCalibration() async {
     final prefs = await SharedPreferences.getInstance();
@@ -70,20 +126,23 @@ class MenuPrincipal extends StatelessWidget {
                       child: FutureBuilder<bool>(
                         future: _checkCalibration(),
                         builder: (context, calibrationSnapshot) {
-                          if (calibrationSnapshot.connectionState == ConnectionState.waiting) {
+                          if (calibrationSnapshot.connectionState ==
+                              ConnectionState.waiting) {
                             return const CircularProgressIndicator();
                           }
                           if (calibrationSnapshot.hasError) {
                             return const Text('Error al cargar calibración');
                           }
-                          final isCalibrated = calibrationSnapshot.data ?? false;
+                          final isCalibrated =
+                              calibrationSnapshot.data ?? false;
                           if (!isCalibrated) {
                             return const CalibrationScreen();
                           }
                           return FutureBuilder<Map<String, dynamic>?>(
-                            future: _getUserData(),
+                            future: _userFuture,
                             builder: (context, userSnapshot) {
-                              final displayName = userSnapshot.data?['nombre'] ?? '';
+                              final displayName =
+                                  userSnapshot.data?['name'] ?? '';
                               return Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [

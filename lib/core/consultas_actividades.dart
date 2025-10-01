@@ -12,7 +12,7 @@ class ConsultasActividades {
     }
   }
 
-  Future<List> cargarActividadReciente(String grupo) async {
+  Future<Map<String, dynamic>> cargarActividadReciente(String grupo) async {
     try {
       final result = await _activityRepository.fetchRecentActiveProcesses(grupo);
       return result;

@@ -30,6 +30,7 @@ class _ActividadesPageState extends State<ActividadesPage> {
 
   Future<Map<String, dynamic>?> _getUserData() async {
     final userDataString = await _storage.read(key: 'admin_userdata');
+    debugPrint(userDataString);
     if (userDataString != null) {
       return jsonDecode(userDataString) as Map<String, dynamic>;
     }

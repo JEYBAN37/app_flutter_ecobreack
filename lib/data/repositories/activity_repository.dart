@@ -86,11 +86,11 @@ class ActivityRepository {
 
   fetchRecentActiveProcesses(String grupo) async {
     try {
-      final response = await _apiService.get('/admin/categorias/get-by-ids/$grupo');
+      final response =
+          await _apiService.get('/admin/categorias/get-by-ids/$grupo');
 
       if (response != null && response['status'] == true) {
-        final processes =
-            List<Map<String, dynamic>>.from(response['data'] ?? []);
+        final processes = Map<String, dynamic>.from(response['data'] ?? []);
         return processes;
       }
       return [];

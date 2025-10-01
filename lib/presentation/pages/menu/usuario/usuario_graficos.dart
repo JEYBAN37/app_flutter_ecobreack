@@ -154,7 +154,7 @@ class UsuarioGraficosState extends State<UsuarioGraficos> {
                         ),
                       ),
                       RingStat(
-                        label: 'ACTIVIDADES\nREALIZADAS',
+                        label: 'Actividades\nRealizadas',
                         value: completed.toStringAsFixed(0),
                         percent: porcentaje,
                         color: const Color(0xFF9ACA60),
@@ -177,7 +177,7 @@ class UsuarioGraficosState extends State<UsuarioGraficos> {
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
                           RingStat(
-                            label: 'PROGRAMADAS',
+                            label: 'Programadas',
                             value: total.toStringAsFixed(0),
                             percent: 1.0,
                             color: const Color(0xFFD0EA4A),
@@ -194,7 +194,7 @@ class UsuarioGraficosState extends State<UsuarioGraficos> {
                             ),
                           ),
                           RingStat(
-                            label: 'TIEMPO',
+                            label: 'Tiempo',
                             value: '${time.toStringAsFixed(0)} min',
                             percent: porcentajeTiempo.clamp(0.0, 1.0),
                             color: const Color(0xFF186188),
@@ -211,7 +211,7 @@ class UsuarioGraficosState extends State<UsuarioGraficos> {
                             ),
                           ),
                           RingStat(
-                            label: 'NO\nREALIZADAS',
+                            label: 'No\nRealizadas',
                             value: notCompleted.toStringAsFixed(0),
                             percent: porcentajeNo,
                             color: const Color(0xFFD0EA4A),
@@ -222,7 +222,7 @@ class UsuarioGraficosState extends State<UsuarioGraficos> {
                               color: Color(0xFF186188),
                             ),
                             labelStyle: const TextStyle(
-                              fontSize: 9,
+                              fontSize: 12,
                               fontFamily: 'HelveticaRounded',
                               color: Color(0xFF186188),
                             ),
