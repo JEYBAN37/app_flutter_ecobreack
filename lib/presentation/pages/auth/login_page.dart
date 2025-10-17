@@ -169,7 +169,7 @@ class _LoginPageState extends State<LoginPage> {
             final password = passwordController.text.trim();
 
             if (email.isEmpty || password.isEmpty) {
-              _showSnackbar("Por favor, completa todos los campos.");
+              _showSnackbar("Por favor, completa todos los campos.", true);
               return;
             }
 
@@ -183,11 +183,11 @@ class _LoginPageState extends State<LoginPage> {
               if (success) {
                 await Navigator.pushReplacementNamed(context, '/menu');
               } else {
-                _showSnackbar("Usuario o contraseña incorrectos.");
+                _showSnackbar("Usuario o contraseña incorrectos.", true);
               }
             } catch (e) {
               if (!mounted) return;
-              _showSnackbar("Error al iniciar sesión: \\${e.toString()}");
+              _showSnackbar("Error al iniciar sesión: \\${e.toString()}", true);
             }
           },
           style: ElevatedButton.styleFrom(
@@ -220,12 +220,12 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  void _showSnackbar(String message) {
+  void _showSnackbar(String message, bool isError) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: message.contains("Error")
+        backgroundColor: isError
             ? Colors.red
             : const Color.fromRGBO(76, 175, 80, 1),
         behavior: SnackBarBehavior.floating,

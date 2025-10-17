@@ -20,4 +20,22 @@ class ConsultasActividades {
       rethrow;
     }
   }
+
+  Future<void> guardarPlanReciente(
+      String userId, String processId, String groupId) async {
+    try {
+      await _activityRepository.saveRecentPlan(userId, processId, groupId);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> cargarPlanReciente(String userId, String groupId) async {
+    try {
+      final result = await _activityRepository.fetchRecentPlan(userId, groupId);
+      return result;
+    } catch (e) {
+      rethrow;
+    }
+  }
 }

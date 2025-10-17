@@ -19,6 +19,30 @@ class ActivityRepository {
         [];
   }
 
+  fetchRecentPlan(String userId, String grupo) async {
+    try {
+      final response =
+          await _apiService.get('/admin/categorias/recent/?userId=$userId&groupId=$grupo');
+        
+      if (response != null && response['status'] == true) {
+        final processes = Map<String, dynamic>.from(response['data'] ?? []);
+        return processes;
+      }
+      return {};
+    } catch (e) {
+      debugPrint('❌ [Repository] Error: $e');
+      if (e is SocketException) {
+        throw Exception(
+            'Error de conexión al servidor. Por favor, verifica tu conexión a internet.');
+      } else if (e is TimeoutException) {
+        throw Exception(
+            'La conexión al servidor tardó demasiado. Por favor, inténtalo de nuevo.');
+      }
+      throw Exception(
+          'Ocurrió un error al obtener los procesos. Por favor, inténtalo más tarde.');
+    }
+  }
+
   Future<List<Map<String, dynamic>>> fetchTodayActivities() async {
     try {
       debugPrint('🔍 [Repository] Fetching today activities...');
@@ -105,6 +129,35 @@ class ActivityRepository {
       }
       throw Exception(
           'Ocurrió un error al obtener los procesos. Por favor, inténtalo más tarde.');
+    }
+  }
+
+  Future<void> saveRecentPlan(
+      String userId, String processId, String groupId) async {
+    try {
+      final body = {
+        'userId': userId,
+        'processId': processId,
+        'groupId': groupId,
+      };
+      final response = await _apiService.postRequest('admin/categorias/recent', body);
+      if (response != null) {
+        debugPrint('✅ [Repository] Recent plan saved successfully');
+        return;
+      } else {
+        throw Exception('Error al guardar el plan reciente.');
+      }
+    } catch (e) {
+      debugPrint('❌ [Repository] Error: $e');
+      if (e is SocketException) {
+        throw Exception(
+            'Error de conexión al servidor. Por favor, verifica tu conexión a internet.');
+      } else if (e is TimeoutException) {
+        throw Exception(
+            'La conexión al servidor tardó demasiado. Por favor, inténtalo de nuevo.');
+      }
+      throw Exception(
+          'Ocurrió un error al guardar el plan reciente. Por favor, inténtalo más tarde.');
     }
   }
 }

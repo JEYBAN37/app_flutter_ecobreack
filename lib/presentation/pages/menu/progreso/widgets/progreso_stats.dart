@@ -8,15 +8,13 @@ class ProgresoStats extends StatelessWidget {
       {super.key, required this.groupedByCategory, this.esMensual = false});
 
   static const Map<String, IconData> _categoryIcons = {
-    'Visual': Icons.visibility,
-    'Auditiva': Icons.hearing,
+    'Visibilidad': Icons.visibility,
+    'Audición': Icons.hearing,
     'Cognitiva': Icons.psychology,
-    'Accesibilidad': Icons.accessibility_new,
-    'Tren Superior': Icons.accessibility_new,
-    'Tren Inferior': Icons.directions_walk,
-    'Movilidad Articular': Icons.self_improvement,
-    'Estiramientos Generales': Icons.extension,
-    'Movilidad': Icons.self_improvement,
+    'Tren Superior': Icons.directions_run,
+    'Tren Inferior': Icons.self_improvement,
+    'Movilidad Articular': Icons.directions_walk,
+    'Estiramientos Generales': Icons.accessibility_new,
   };
 
   static Color getCardColor(String category) {
@@ -28,13 +26,13 @@ class ProgresoStats extends StatelessWidget {
       case 'Cognitiva':
         return const Color(0xFFFFB74D); // Naranja
       case 'Tren Superior':
-        return const Color(0xFF1976D2); // Azul fuerte
+        return const Color(0xFFFF8A65); // Azul fuerte
       case 'Tren Inferior':
-        return const Color(0xFFC6DA23); // Verde claro
-      case 'Movilidad':
-        return const Color(0xFF26C6DA); // Turquesa
+        return const Color(0xFF26C6DA); // Verde claro
+      case 'Movilidad Articular':
+        return const Color(0xFFC6DA23); // Turquesa
       case 'Estiramientos Generales':
-        return const Color(0xFFFF8A65); // Naranja suave
+        return const Color(0xFF1976D2); // Naranja suave
       default:
         return Colors.grey;
     }
@@ -44,16 +42,16 @@ class ProgresoStats extends StatelessWidget {
   Widget build(BuildContext context) {
     // Lista de categorías a mostrar (puedes ajustar el orden aquí)
     final categorias = [
-      'Tren Superior',
-      'Tren Inferior',
-      'Estiramientos Generales',
       'Visibilidad',
       'Audición',
       'Cognitiva',
-      'Movilidad',
+      'Tren Superior',
+      'Tren Inferior',
+      'Movilidad Articular',
+      'Estiramientos Generales',
     ];
 
-    final divisor = esMensual ? 50 : 20;
+    final divisor = esMensual ? 12 : 3;
 
     // Calcular suma total según reglas
     int sumaActividades = 0;
@@ -134,10 +132,10 @@ class ProgresoStats extends StatelessWidget {
             final percent = (value / divisor).clamp(0.0, 1.0);
             final icon = _categoryIcons[cat] ?? Icons.category;
             final color = getCardColor(cat);
-            // En semanal muestra máximo 5, en mensual muestra el valor real
+            // En mensual máximo 12/12, en semanal máximo 3/3
             final fraccion = esMensual
-                ? '$value/$divisor'
-                : '${value > 20 ? 50 : value}/$divisor';
+                ? '${value > 12 ? 12 : value}/$divisor'
+                : '${value > 3 ? 3 : value}/$divisor';
             return Padding(
               padding: const EdgeInsets.only(bottom: 16),
               child: _buildProgressBar(

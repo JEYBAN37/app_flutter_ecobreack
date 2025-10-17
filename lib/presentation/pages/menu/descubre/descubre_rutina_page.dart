@@ -18,7 +18,10 @@ class DescubreRutinaPage extends StatefulWidget {
   final List ejercicios;
   bool salir = false;
   DescubreRutinaPage(
-      {super.key, required this.categoria, required this.ejercicios , this.salir = false});
+      {super.key,
+      required this.categoria,
+      required this.ejercicios,
+      this.salir = false});
 
   @override
   State<DescubreRutinaPage> createState() => _DescubreRutinaPageState();
@@ -63,7 +66,6 @@ class _DescubreRutinaPageState extends State<DescubreRutinaPage> {
 
   List<String> motivos = [];
   final detector = PauseDetectorService();
-  
 
   int _ejercicioActual() {
     int ejercicio = 0;
@@ -78,18 +80,44 @@ class _DescubreRutinaPageState extends State<DescubreRutinaPage> {
   }
 
   void activarSensorYCapturar() {
-    try {} catch (e) {
+    try {
+      detector.start((count) {
+        setState(() {
+          _repeticiones = count;
+          _updateRepsFeedback(count);
+        });
+      });
+    } catch (e) {
       debugPrint('Error al iniciar el servicio de sensor: $e');
       if (mounted) Navigator.of(context).pop();
     }
   }
 
-  static const List<String> categoriasMovimiento = [
-    'Tren Superior',
-    'Tren Inferior',
-    'Movilidad Articular',
-    'Estiramientos Generales',
-  ];
+  void _updateRepsFeedback(int count) {
+    if (count == 1) {
+      _showRepsFeedback = true;
+      _repsFeedbackMsg = 'Movimiento detectado';
+      // Hide feedback after 2 seconds
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) {
+          setState(() {
+            _showRepsFeedback = false;
+          });
+        }
+      });
+    } else if (count > 50) {
+      _showRepsFeedback = true;
+      _repsFeedbackMsg = 'Movimiento aceptable';
+      // Hide feedback after 2 seconds
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) {
+          setState(() {
+            _showRepsFeedback = false;
+          });
+        }
+      });
+    }
+  }
 
   void _initDriveVideoController() {
     final ejercicio = widget.ejercicios[_currentIndex];
@@ -125,6 +153,8 @@ class _DescubreRutinaPageState extends State<DescubreRutinaPage> {
     _categoriaActual = widget.ejercicios[0]['categoria'];
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       debugPrint('Iniciando rutina de ${widget.ejercicios[0]}');
+      // Cargar calibración al inicio
+      await detector.loadCalibration();
       await _announcePlan(true);
       _initDriveVideoController();
       _initTimer();
@@ -142,7 +172,7 @@ class _DescubreRutinaPageState extends State<DescubreRutinaPage> {
         });
       }
       _initPauseDetector();
-      _onStartPressed();
+      //_onStartPressed();
     });
   }
 
@@ -207,7 +237,7 @@ class _DescubreRutinaPageState extends State<DescubreRutinaPage> {
     final actividadInfo = {
       'nombre': ejercicio['nombre'],
       'categoria': ejercicio['categoria'],
-      'repeticiones': _repeticiones,
+      'repeticiones': _repeticiones > 100 ? 100 : _repeticiones,
       'tiempo': requiereSensor ? _totalSeconds : _cronometroSegundos,
       'sensorEnabled': ejercicio['sensorEnabled'] ?? false,
       'estado': ejercicio['estado'] ?? false,
@@ -215,6 +245,7 @@ class _DescubreRutinaPageState extends State<DescubreRutinaPage> {
       'idPlan': ejercicio['planDePausa'] ?? '',
       'idUsuario': ejercicio['userId'] ?? '',
       'idEjercicio': ejercicio['id'] ?? '',
+      'createdAt': DateTime.now().toIso8601String().substring(0, 10),
     };
 
     await apiService.loadActivityToHistory(actividadInfo);
@@ -285,7 +316,7 @@ class _DescubreRutinaPageState extends State<DescubreRutinaPage> {
         if (_secondsLeft == (_totalSeconds / 2).round()) {
           setState(() => _showMotivation = true);
           await _speak('¡Vas por buen camino! Sigue así.');
-          await Future.delayed(const Duration(seconds: 2));
+          await Future.delayed(const Duration(seconds: 3));
           setState(() => _showMotivation = false);
         }
       } else if (_secondsLeft == 0) {
@@ -308,8 +339,10 @@ class _DescubreRutinaPageState extends State<DescubreRutinaPage> {
         });
         if (ejercicio['sensorEnabled'] == true) {
           await _speak('Verificando movimiento espera un momento...');
+          await Future.delayed(const Duration(seconds: 3));
         } else {
           await _speak('¡Continuamos al siguiente ejercicio!');
+          await Future.delayed(const Duration(seconds: 3));
         }
 
         await Future.delayed(const Duration(seconds: 2));
@@ -385,7 +418,6 @@ class _DescubreRutinaPageState extends State<DescubreRutinaPage> {
       _ejercicioTerminado = false;
       _cronometroSegundos = 0;
     });
-    // Iniciar cronómetro solo si NO requiere sensor
     final ejercicio = widget.ejercicios[_currentIndex];
     if (!(ejercicio['sensorEnabled'] == true)) {
       if (_cronometroTimer != null) {
@@ -401,6 +433,7 @@ class _DescubreRutinaPageState extends State<DescubreRutinaPage> {
     detector.start((count) {
       setState(() {
         _repeticiones = count;
+        _updateRepsFeedback(count);
       });
     });
 
@@ -413,7 +446,7 @@ class _DescubreRutinaPageState extends State<DescubreRutinaPage> {
 
     final bool esUltimo = _currentIndex == widget.ejercicios.length - 1;
 
-    if (requiereSensor && (_repeticiones < 5 || _isDetecting == false)) {
+    if (requiereSensor && (_repeticiones < 50 || _isDetecting == false)) {
       // Mostrar mensaje de error SOLO si requiere sensor y no cumple repeticiones
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -449,26 +482,45 @@ class _DescubreRutinaPageState extends State<DescubreRutinaPage> {
       setState(() {
         _currentIndex++;
         _initVideoController();
+        _initDriveVideoController(); // <-- Asegura que el video se actualice
         _initTimer();
+        _timerStarted = false; // <-- Reinicia timer
+        _ejercicioTerminado = false; // <-- Reinicia estado de ejercicio
       });
 
       if (!mounted) return;
+      // Cargar calibración para el siguiente ejercicio
+      await detector.loadCalibration();
       await _announcePlan(_categoriaActual != _categoriaAnterior);
-      _startAutoStartTimer();
+      // _startAutoStartTimer(); // Eliminar autoinicio, solo inicia cuando el usuario presione 'Iniciar'
     } else {
       if (!mounted) return;
       await _speak(
           'Con esta categoría acabamos. ¡Rutina completada! Felicitaciones.');
       await Future.delayed(
-          const Duration(seconds: 6)); // Más tiempo para la voz
+          const Duration(seconds: 8)); // Más tiempo para la voz
       if (!mounted) return;
       detector.stop();
       // Solo si cumple repeticiones mínimas, marcar como finalizada y enviar info
-      if (!(requiereSensor && _repeticiones < 5 && _isDetecting == false)) {
+      if (!(requiereSensor && _repeticiones < 50 && _isDetecting == false)) {
         setState(() {
           _rutinaFinalizada = true;
         });
         await sendActividadFinalizadaInfo();
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('¡Felicidades!'),
+            content: const Text('Has completado la rutina. ¡Buen trabajo!'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Aceptar'),
+                style: TextButton.styleFrom(foregroundColor: Colors.green),
+              ),
+            ],
+          ),
+        );
         Navigator.of(context).pop(true);
       } else {
         // Si no cumple, ya se salió antes (por el return de arriba)
@@ -479,6 +531,20 @@ class _DescubreRutinaPageState extends State<DescubreRutinaPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_currentIndex < 0 || _currentIndex >= widget.ejercicios.length) {
+      if (_rutinaFinalizada) {
+        return const Scaffold(
+          body: Center(child: Text('No hay más ejercicios.')),
+        );
+      } else if (widget.ejercicios.isNotEmpty) {
+        // Si el índice se sale pero la rutina no está finalizada, mostrar el último ejercicio válido
+        _currentIndex = widget.ejercicios.length - 1;
+      } else {
+        return const Scaffold(
+          body: Center(child: Text('No hay ejercicios disponibles.')),
+        );
+      }
+    }
     final ejercicio = widget.ejercicios[_currentIndex];
     final color = ejercicio['color'];
     const font = 'HelveticaRounded';
@@ -486,8 +552,8 @@ class _DescubreRutinaPageState extends State<DescubreRutinaPage> {
         (ejercicio['pasos'] as List).map((e) => e.toString()).toList();
     final double percentElapsed =
         _totalSeconds > 0 ? (_totalSeconds - _secondsLeft) / _totalSeconds : 0;
-    _isDetecting = _repeticiones > 5 ? true : false;
-    final bool puedeSiguiente = percentElapsed >= 0.6 &&
+    _isDetecting = _repeticiones > 50 ? true : false;
+    final bool puedeSiguiente = percentElapsed >= 0.8 &&
         _timerStarted &&
         !_isDetecting &&
         !_rutinaFinalizada &&
@@ -935,7 +1001,7 @@ class _DescubreRutinaPageState extends State<DescubreRutinaPage> {
                   right: 0,
                   child: Center(
                     child: AnimatedOpacity(
-                      opacity: puedeSiguiente ? 1 : 0.6,
+                      opacity: puedeSiguiente ? 1 : 0.8,
                       duration: const Duration(milliseconds: 300),
                       child: Container(
                         decoration: BoxDecoration(
@@ -1167,7 +1233,7 @@ class _MovementDetectorWidget extends StatelessWidget {
           Lottie.asset('assets/animaciones/fallo.json',
               width: 48, height: 48, repeat: true),
           const SizedBox(width: 8),
-          Text('No se detectó movimiento',
+          Text('No se detecta movimiento',
               style: TextStyle(color: color, fontWeight: FontWeight.bold)),
         ],
       );
@@ -1192,13 +1258,14 @@ class _RepsCounterWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final repeticiones_view = repeticiones >= 100 ? 100 : repeticiones;
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Icon(Icons.fitness_center, color: color, size: 28),
         const SizedBox(width: 8),
         Text(
-          'Repeticiones: $repeticiones',
+          'Porcentaje: $repeticiones_view  %',
           style: TextStyle(
             color: color,
             fontWeight: FontWeight.bold,

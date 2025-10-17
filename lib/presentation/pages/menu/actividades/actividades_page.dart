@@ -172,8 +172,10 @@ class _ActividadesPageState extends State<ActividadesPage> {
                                     top: 5, left: 20, right: 20),
                                 child: Center(
                                   child: Text(
-                                    _processGroupResponse?['description'] != null
-                                        ? (_processGroupResponse!['description'])
+                                    _processGroupResponse?['description'] !=
+                                            null
+                                        ? (_processGroupResponse![
+                                                'description'])
                                             .split(' ')
                                             .map((word) => word.isNotEmpty
                                                 ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}'

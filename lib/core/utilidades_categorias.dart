@@ -10,49 +10,53 @@ class UtilidadesCategorias {
   static Map<String, dynamic> configPorIcono(String iconName) {
     switch (iconName) {
       case 'Icons.visibility':
-      case 'Icons.remove_red_eye':
         return {
-          'nombre': 'Visual',
+          'nombre': 'Visibilidad',
           'color': const Color(0xFF4FC3F7),
           'descripcion':
               'Ejercicios para reducir la fatiga visual y mejorar la salud ocular en el trabajo.',
         };
       case 'Icons.hearing':
-      case 'Icons.headphones':
         return {
-          'nombre': 'Auditiva',
+          'nombre': 'Audición',
           'color': const Color(0xFF9575CD),
           'descripcion':
               'Ejercicios para relajar y proteger la audición en ambientes laborales.',
         };
       case 'Icons.psychology':
-      case 'Icons.numbers':
         return {
-          'nombre': 'Psicológico',
+          'nombre': 'Cognitiva',
           'color': const Color(0xFFFFB74D),
           'descripcion':
               'Ejercicios para estimular la concentración y la memoria.',
         };
       case 'Icons.accessibility_new':
         return {
-          'nombre': 'Accesibilidad',
+          'nombre': 'Estiramientos Generales',
           'color': const Color(0xFF0067AC),
           'descripcion':
               'Moviliza y estira hombros, cuello y brazos para prevenir molestias.',
         };
       case 'Icons.directions_walk':
         return {
-          'nombre': 'Movilidad',
+          'nombre': 'Movilidad Articular',
           'color': const Color(0xFFC6DA23),
           'descripcion':
               'Ejercicios para piernas y cadera, mejorando la circulación y flexibilidad.',
         };
       case 'Icons.self_improvement':
         return {
-          'nombre': 'Mejora Personal',
+          'nombre': 'Tren Inferior',
           'color': const Color(0xFF26A69A),
           'descripcion':
               'Rutinas para mantener las articulaciones móviles y saludables.',
+        };
+      case 'Icons.directions_run':
+        return {
+          'nombre': 'Tren Superior',
+          'color': const Color(0xFFFF8A65),
+          'descripcion':
+              'Ejercicios para fortalecer y relajar brazos, hombros y espalda.',
         };
       default:
         return {

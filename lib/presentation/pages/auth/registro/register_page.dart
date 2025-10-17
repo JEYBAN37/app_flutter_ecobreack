@@ -24,10 +24,14 @@ class _RegisterPageState extends State<RegisterPage> {
   late TextEditingController lastNameController;
   late TextEditingController emailController;
   late TextEditingController passwordController;
+  late TextEditingController confirmPasswordController;
   late TextEditingController phoneController;
   final NotificationSettingsService _notificationSettingsService =
       NotificationSettingsService();
   final AvatarData avatarData = AvatarData();
+  bool _isLoading = false;
+  bool _isPasswordVisible = false;
+  bool _isConfirmPasswordVisible = false;
   final List<Color> colorOptions = [
     const Color(0xFF0067AC),
     const Color(0xFFC6DA23),
@@ -46,6 +50,7 @@ class _RegisterPageState extends State<RegisterPage> {
     emailController = TextEditingController();
     phoneController = TextEditingController();
     passwordController = TextEditingController();
+    confirmPasswordController = TextEditingController();
   }
 
   @override
@@ -55,6 +60,7 @@ class _RegisterPageState extends State<RegisterPage> {
     lastNameController.dispose();
     emailController.dispose();
     passwordController.dispose();
+    confirmPasswordController.dispose();
     phoneController.dispose();
     super.dispose();
   }
@@ -66,10 +72,22 @@ class _RegisterPageState extends State<RegisterPage> {
         lastNameController.text.trim().isEmpty ||
         emailController.text.trim().isEmpty ||
         phoneController.text.trim().isEmpty ||
-        passwordController.text.trim().isEmpty) {
+        passwordController.text.trim().isEmpty ||
+        confirmPasswordController.text.trim().isEmpty) {
       _showSnackbar(
         context,
         "Por favor, completa todos los campos.",
+        isError: true,
+      );
+      return null;
+    }
+
+    // Validar que las contraseñas coincidan
+    if (passwordController.text.trim() !=
+        confirmPasswordController.text.trim()) {
+      _showSnackbar(
+        context,
+        "Las contraseñas no coinciden.",
         isError: true,
       );
       return null;
@@ -80,6 +98,16 @@ class _RegisterPageState extends State<RegisterPage> {
       _showSnackbar(
         context,
         "Por favor, ingresa un número de teléfono válido.",
+        isError: true,
+      );
+      return null;
+    }
+
+    // Validar longitud mínima de contraseña
+    if (passwordController.text.trim().length < 6) {
+      _showSnackbar(
+        context,
+        "La contraseña debe tener al menos 6 caracteres.",
         isError: true,
       );
       return null;
@@ -114,11 +142,19 @@ class _RegisterPageState extends State<RegisterPage> {
     final userToSave = await validateData();
     if (userToSave == null) return;
 
+    setState(() {
+      _isLoading = true;
+    });
+
     try {
       final message =
           await _authRepository.registerUserWithEmailAndPassword(userToSave);
 
       if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+      });
 
       if (message == true) {
         _showSnackbar(context, "Usuario creado correctamente", isError: false);
@@ -128,6 +164,9 @@ class _RegisterPageState extends State<RegisterPage> {
       }
     } catch (e) {
       if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
       _showSnackbar(
         context,
         "Ocurrió un error al registrar. Inténtalo de nuevo.",
@@ -258,6 +297,15 @@ class _RegisterPageState extends State<RegisterPage> {
                     ),
                     SizedBox(height: size.height * 0.03),
 
+                    _buildTextField(
+                      confirmPasswordController,
+                      Icons.lock_outline,
+                      "Confirmar Contraseña*",
+                      isPassword: true,
+                      isConfirmPassword: true,
+                    ),
+                    SizedBox(height: size.height * 0.03),
+
                     _buildTextField(nameController, Icons.badge, "Nombre*"),
                     SizedBox(height: size.height * 0.03),
 
@@ -298,15 +346,37 @@ class _RegisterPageState extends State<RegisterPage> {
     IconData icon,
     String hint, {
     bool isPassword = false,
+    bool isConfirmPassword = false,
   }) {
+    bool isVisible = isPassword
+        ? (isConfirmPassword ? _isConfirmPasswordVisible : _isPasswordVisible)
+        : false;
+
     return TextField(
       controller: controller,
       style: const TextStyle(color: Colors.black87, fontSize: 16),
-      obscureText: isPassword,
+      obscureText: isPassword ? !isVisible : false,
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 16),
         prefixIcon: Icon(icon, color: Colors.grey.shade600),
+        suffixIcon: isPassword
+            ? IconButton(
+                icon: Icon(
+                  isVisible ? Icons.visibility : Icons.visibility_off,
+                  color: Colors.grey.shade600,
+                ),
+                onPressed: () {
+                  setState(() {
+                    if (isConfirmPassword) {
+                      _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
+                    } else {
+                      _isPasswordVisible = !_isPasswordVisible;
+                    }
+                  });
+                },
+              )
+            : null,
         filled: true,
         fillColor: Colors.grey.shade200,
         border: OutlineInputBorder(
@@ -536,22 +606,33 @@ class _RegisterPageState extends State<RegisterPage> {
           width: double.infinity,
           height: size.height * 0.06,
           child: ElevatedButton(
-            onPressed: _handleRegistration,
+            onPressed: _isLoading ? null : _handleRegistration,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color.fromRGBO(76, 175, 80, 1),
+              backgroundColor: _isLoading
+                  ? Colors.grey
+                  : const Color.fromRGBO(76, 175, 80, 1),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(25),
               ),
             ),
-            child: const Text(
-              "REGISTRARME",
-              style: TextStyle(
-                fontFamily: 'HelveticaRounded',
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-            ),
+            child: _isLoading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const Text(
+                    "REGISTRARME",
+                    style: TextStyle(
+                      fontFamily: 'HelveticaRounded',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
           ),
         ),
         SizedBox(height: size.height * 0.02),
@@ -576,9 +657,11 @@ class _RegisterPageState extends State<RegisterPage> {
           width: double.infinity,
           height: size.height * 0.06,
           child: ElevatedButton(
-            onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
+            onPressed: _isLoading
+                ? null
+                : () => Navigator.pushReplacementNamed(context, '/login'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
+              backgroundColor: _isLoading ? Colors.grey : Colors.red,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(25),
               ),

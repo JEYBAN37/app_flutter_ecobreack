@@ -30,19 +30,37 @@ class _NotificacionesPageState extends State<NotificacionesPage> {
     final userId = await _storage.read(key: 'admin_userId') ?? '';
     final prefs = await SharedPreferences.getInstance();
     final settings = await _settingsService.fetchNotificationSettings(userId);
-    
+    int startHour = 8, startMinute = 0, endHour = 17, endMinute = 0;
+    debugPrint('Configuración obtenida del servidor: $settings');
+    final dateStart = settings[0]['dateStart'] ?? '';
+    final dateEnd = settings[0]['dateEnd'] ?? '';
+
+    debugPrint(
+        'Configuración del servidor - Inicio: $dateStart, Fin: $dateEnd');
+
+    if (dateStart.contains(':')) {
+      final parts = dateStart.split(':');
+      if (parts.length == 2) {
+        startHour = int.tryParse(parts[0]) ?? 8;
+        startMinute = int.tryParse(parts[1]) ?? 0;
+      }
+    }
+    if (dateEnd.contains(':')) {
+      final parts = dateEnd.split(':');
+      if (parts.length == 2) {
+        endHour = int.tryParse(parts[0]) ?? 17;
+        endMinute = int.tryParse(parts[1]) ?? 0;
+      }
+    }
+
+    debugPrint(
+        'Horas de notificación: $startHour:$startMinute - $endHour:$endMinute');
     setState(() {
+      horaInicio = TimeOfDay(hour: startHour, minute: startMinute);
+      horaFin = TimeOfDay(hour: endHour, minute: endMinute);
       notificacionesActivas = prefs.getBool('notificacionesActivas') ?? true;
       frecuenciaSeleccionada = prefs.getString('frecuencia') ?? '1';
       pausasActivas = prefs.getBool('pausasActivas') ?? true;
-      horaInicio = TimeOfDay(
-        hour: prefs.getInt('horaInicio_hour') ?? 8,
-        minute: prefs.getInt('horaInicio_minute') ?? 0,
-      );
-      horaFin = TimeOfDay(
-        hour: prefs.getInt('horaFin_hour') ?? 17,
-        minute: prefs.getInt('horaFin_minute') ?? 0,
-      );
     });
   }
 

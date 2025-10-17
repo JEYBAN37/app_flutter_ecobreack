@@ -1,10 +1,11 @@
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:ecoapp/data/repositories/auth_repository.dart';
 import 'package:ecoapp/data/repositories/network/api_service.dart';
 import 'package:ecoapp/presentation/pages/menu/ajustes/calibration_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:ecoapp/presentation/pages/menu/widgetsM/custom_bottom_bar.dart'; 
+import 'package:ecoapp/presentation/pages/menu/widgetsM/custom_bottom_bar.dart';
 import 'package:ecoapp/core/route_observer.dart';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -18,16 +19,15 @@ class MenuPrincipal extends StatefulWidget {
 }
 
 class _MenuPrincipalState extends State<MenuPrincipal> with RouteAware {
-
-
   final _storage = const FlutterSecureStorage();
+  final authRepository = AuthRepository();
   final _apiService = ApiService();
   late Future<Map<String, dynamic>?> _userFuture;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-        final route = ModalRoute.of(context);
+    final route = ModalRoute.of(context);
     if (route is PageRoute) {
       routeObserver.subscribe(this, route);
     }
@@ -72,7 +72,20 @@ class _MenuPrincipalState extends State<MenuPrincipal> with RouteAware {
         return jsonDecode(userDataString) as Map<String, dynamic>;
       }
     } catch (e) {
-      print('Error al obtener datos de usuario: $e');
+
+      final pw = await _storage.read(key: 'admin_password');
+      final em = await _storage.read(key: 'admin_email');
+      if (pw == null || em == null) {
+        // Si no hay credenciales guardadas, navega al login
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/login');
+        }
+        return null;
+      }
+      await _storage.delete(key: 'admin_token');
+      await authRepository.signIn((await em)!, (await pw)!);
+      debugPrint('relogin after error: $e');
+      return _getUserData();
     }
     return null;
   }

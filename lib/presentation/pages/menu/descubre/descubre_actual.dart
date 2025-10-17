@@ -20,11 +20,40 @@ class DescubreActual extends StatefulWidget {
 }
 
 class _DescubreActualState extends State<DescubreActual> with RouteAware {
+  // Clave para guardar progreso diario
+  static const String _progresoDiarioKey = 'progreso_diario_actividad';
+
+  // Guarda el id de la última actividad completada y la fecha (yyyy-MM-dd)
+  Future<void> guardarProgresoDiario(String actividadId) async {
+    final hoy = DateTime.now();
+    final fechaStr =
+        "${hoy.year.toString().padLeft(4, '0')}-${hoy.month.toString().padLeft(2, '0')}-${hoy.day.toString().padLeft(2, '0')}";
+    final data = jsonEncode({'id': actividadId, 'fecha': fechaStr});
+    await _storage.write(key: _progresoDiarioKey, value: data);
+  }
+
+  // Lee el progreso diario guardado
+  Future<String?> leerProgresoDiarioId() async {
+    final dataStr = await _storage.read(key: _progresoDiarioKey);
+    if (dataStr == null) return null;
+    final data = jsonDecode(dataStr);
+    final fechaGuardada = data['fecha'] as String?;
+    final hoy = DateTime.now();
+    final fechaHoy =
+        "${hoy.year.toString().padLeft(4, '0')}-${hoy.month.toString().padLeft(2, '0')}-${hoy.day.toString().padLeft(2, '0')}";
+    if (fechaGuardada != fechaHoy) {
+      // Si es otro día, borra el progreso
+      await _storage.delete(key: _progresoDiarioKey);
+      return null;
+    }
+    return data['id'] as String?;
+  }
+
   List fetchedActivities = [];
   bool _isLoading = true; // <-- Añade esta variable
   final Set<String> _ejerciciosCompletados = {};
   static const _storage = FlutterSecureStorage();
-  String nombrePlan = 'Quemado';
+  String nombrePlan = 'No tienes Plan Asignado';
   VideoPlayerController? _driveVideoController;
   @override
   void initState() {
@@ -142,30 +171,88 @@ class _DescubreActualState extends State<DescubreActual> with RouteAware {
     return null;
   }
 
+  Future<String?> userId() async {
+    return await _storage.read(key: 'admin_userId');
+  }
+
   void _loadActivities() async {
     try {
       final userData = await _getUserData();
       final groupId = userData?['groupId'] ?? '';
-      final result =
+      var result =
           await ConsultasActividades().cargarActividadReciente(groupId);
 
-      fetchedActivities = await UtilidadesCategorias.agruparPorTituloIconoSync(
-          result['categorias'], result['proceso'] ?? '');
+      debugPrint(
+          'Recent Activity Result: ${result['categorias'][0]['nombre']}');
 
-      if (result['categorias'].every((item) => item["estado"] == false)) {
-        print("✅ Todos los estados son false. Ejecutar acción.");
-        // aquí tu acción
-      } 
+      bool encontrado = false;
+      final Set<String> planesVisitados = {};
+      while (!encontrado) {
+        // Evita bucles infinitos por planes repetidos
+        final planId = result['proceso']?.toString() ?? '';
+        if (planesVisitados.contains(planId)) {
+          debugPrint('Bucle detectado, no hay más planes nuevos.');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('No hay categorías activas disponibles.')),
+          );
+          break;
+        }
+        planesVisitados.add(planId);
 
-      nombrePlan = result['categorias'][0]['nombre'] ?? 'Plan del Día';
+        fetchedActivities =
+            await UtilidadesCategorias.agruparPorTituloIconoSync(
+                result['categorias'], result['proceso'] ?? '');
+
+        // Leer progreso diario
+        final String? ultimaActividadId = await leerProgresoDiarioId();
+        if (ultimaActividadId != null && ultimaActividadId.isNotEmpty) {
+          int idx = fetchedActivities
+              .indexWhere((cat) => cat['id']?.toString() == ultimaActividadId);
+          if (idx != -1 && idx + 1 < fetchedActivities.length) {
+            fetchedActivities = fetchedActivities.sublist(idx + 1);
+          }
+        }
+
+        nombrePlan = fetchedActivities.isNotEmpty
+            ? result['categorias'][0]['nombre'] ?? 'Plan del Día'
+            : 'Plan del Día';
+
+        final actividadesActivas =
+            fetchedActivities.where((cat) => cat['estado'] == true).toList();
+
+        if (actividadesActivas.isNotEmpty) {
+          fetchedActivities = actividadesActivas;
+          nombrePlan = result['categorias'][0]['nombre'] ?? 'Plan del Día';
+          encontrado = true;
+        } else {
+          // Si no hay actividades activas, intenta traer el siguiente plan
+          final user = await userId();
+          await ConsultasActividades().guardarPlanReciente(
+              user ?? '', result['proceso'] ?? '', groupId);
+          result = await ConsultasActividades()
+              .cargarPlanReciente(user ?? '', groupId);
+
+          // Si el nuevo plan tampoco tiene categorías, sal del bucle
+          if (result['categorias'] == null ||
+              (result['categorias'] as List).isEmpty) {
+            debugPrint('No hay más planes disponibles.');
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content: Text('No hay categorías activas disponibles.')),
+            );
+            break;
+          }
+        }
+      }
+
       setState(() {
         fetchedActivities = fetchedActivities;
-        _isLoading = false; // <-- Actualiza el estado de carga
+        _isLoading = false;
       });
     } catch (e) {
       setState(() {
-        _isLoading =
-            false; // Asegúrate de actualizar el estado incluso en error
+        _isLoading = false;
       });
       debugPrint('Error al cargar actividades: $e');
     }

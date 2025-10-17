@@ -13,7 +13,7 @@ class ProgresoChart extends StatelessWidget {
     List<double> values;
 
     if (modo == 'semana') {
-      // Genera los 7 días de la semana actual
+      // ...existing code...
       final now = DateTime.now();
       final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
       sortedKeys = List.generate(7, (i) {
@@ -23,30 +23,36 @@ class ProgresoChart extends StatelessWidget {
       values =
           sortedKeys.map((k) => groupedByDay[k]?.toDouble() ?? 0.0).toList();
     } else if (modo == 'mes') {
-      // Genera todos los días del mes actual
+      // Para vista mensual, generar la semana actual para gráfica de barras
+      // o todos los días del mes para gráfica de líneas
       final now = DateTime.now();
-      final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
-      sortedKeys = List.generate(daysInMonth, (i) {
-        final d = DateTime(now.year, now.month, i + 1);
+      final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+      sortedKeys = List.generate(7, (i) {
+        final d = startOfWeek.add(Duration(days: i));
         return "${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}";
       });
       values =
           sortedKeys.map((k) => groupedByDay[k]?.toDouble() ?? 0.0).toList();
     } else {
-      // Por defecto, usa los datos tal cual
+      // ...existing code...
       sortedKeys = groupedByDay.keys.toList()..sort();
       values = sortedKeys.map((k) => groupedByDay[k]!.toDouble()).toList();
     }
 
     // Si es mes y hay muchos días, usa gráfico de líneas
     if (modo == 'mes' && sortedKeys.length > 14) {
+      final maxY =
+          ((values.isNotEmpty ? values.reduce((a, b) => a > b ? a : b) : 10) +
+                  2)
+              .toDouble();
+      final interval =
+          (values.isNotEmpty && values.reduce((a, b) => a > b ? a : b) > 5)
+              ? (values.reduce((a, b) => a > b ? a : b) / 5).ceilToDouble()
+              : 1.0;
       return LineChart(
         LineChartData(
           minY: 0,
-          maxY: (values.isNotEmpty
-                  ? values.reduce((a, b) => a > b ? a : b)
-                  : 10) +
-              2,
+          maxY: maxY,
           titlesData: FlTitlesData(
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
@@ -67,7 +73,9 @@ class ProgresoChart extends StatelessWidget {
               sideTitles: SideTitles(
                 showTitles: true,
                 reservedSize: 40,
+                interval: interval,
                 getTitlesWidget: (value, meta) {
+                  if (value % interval != 0) return const SizedBox.shrink();
                   return Text('${value.toInt()}',
                       style: const TextStyle(fontSize: 12));
                 },
@@ -80,9 +88,9 @@ class ProgresoChart extends StatelessWidget {
               sideTitles: SideTitles(showTitles: false),
             ),
           ),
-          gridData: const FlGridData(
+          gridData: FlGridData(
             show: true,
-            horizontalInterval: 5,
+            horizontalInterval: interval,
             drawVerticalLine: false,
           ),
           borderData: FlBorderData(show: false),
@@ -103,6 +111,7 @@ class ProgresoChart extends StatelessWidget {
     }
 
     // Si es semana o pocos días, usa barras
+    // Convertir siempre las fechas a nombres de días
     final weekDays = sortedKeys.map((k) {
       final date = DateTime.parse(k);
       return _getShortDayName(date.weekday);
@@ -138,7 +147,18 @@ class ProgresoChart extends StatelessWidget {
             sideTitles: SideTitles(
               showTitles: true,
               reservedSize: 40,
+              interval: (values.isNotEmpty &&
+                      values.reduce((a, b) => a > b ? a : b) > 5)
+                  ? (values.reduce((a, b) => a > b ? a : b) / 5).ceilToDouble()
+                  : 1,
               getTitlesWidget: (value, meta) {
+                // Solo mostrar múltiplos del intervalo
+                final interval = (values.isNotEmpty &&
+                        values.reduce((a, b) => a > b ? a : b) > 5)
+                    ? (values.reduce((a, b) => a > b ? a : b) / 5)
+                        .ceilToDouble()
+                    : 1;
+                if (value % interval != 0) return const SizedBox.shrink();
                 return Text(
                   '${value.toInt()}',
                   style: const TextStyle(fontSize: 12),

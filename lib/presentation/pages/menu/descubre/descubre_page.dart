@@ -3,6 +3,7 @@ import 'package:ecoapp/core/consultas_actividades.dart';
 import 'package:ecoapp/core/tarjeta_categoria.dart';
 import 'package:ecoapp/core/utilidades_categorias.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'descubre_rutina_page.dart';
 import 'package:ecoapp/core/pause_detector_service.dart';
@@ -25,6 +26,7 @@ class DescubrePage extends StatefulWidget {
 
 class _DescubrePageState extends State<DescubrePage> with RouteAware {
   List get activities => widget.activities;
+    static const _storage = FlutterSecureStorage();
   late PauseDetectorService _pauseDetector;
   String get title => widget.title;
   String get idProcess => widget.idProcess;
@@ -83,8 +85,6 @@ class _DescubrePageState extends State<DescubrePage> with RouteAware {
   void _initializePauseDetector() {
     _pauseDetector = PauseDetectorService();
   }
-
-  
 
   void _showCategoriaDetalle(categoria) {
     showModalBottomSheet(
@@ -300,7 +300,7 @@ class _DescubrePageState extends State<DescubrePage> with RouteAware {
                                 'color': firstCategory['color'],
                               })
                           .toList(),
-                          salir: false,
+                      salir: false,
                     ),
                   ),
                 );
