@@ -11,6 +11,7 @@ class ForgotPasswordPage extends StatefulWidget {
 class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   final AuthRepository _authRepository = AuthRepository();
   late TextEditingController emailController;
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -27,15 +28,46 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   Future<void> _resetPassword() async {
     String email = emailController.text.trim();
     if (email.isEmpty) {
-      _showSnackbar('Por favor ingresa tu correo electrónico.');
+      _showSnackbar('Por favor ingresa tu correo electrónico.', isError: true);
       return;
     }
 
-    final message = await _authRepository.sendPasswordResetEmail(email);
-    _showSnackbar(message);
+    if (!email.contains('@')) {
+      _showSnackbar('Por favor ingresa un correo electrónico válido.',
+          isError: true);
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final message = await _authRepository.sendPasswordResetEmail(email);
+      if (!mounted) return;
+      _showSnackbar(message, isError: false);
+    } catch (e) {
+      if (!mounted) return;
+      String errorMessage = 'Error al enviar correo de recuperación';
+
+      if (e.toString().contains('TimeoutException')) {
+        errorMessage =
+            'Tiempo de espera agotado. Verifica tu conexión a internet.';
+      } else if (e.toString().contains('SocketException')) {
+        errorMessage = 'Sin conexión a internet. Verifica tu conexión.';
+      }
+
+      _showSnackbar(errorMessage, isError: true);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
-  void _showSnackbar(String message) {
+  void _showSnackbar(String message, {bool isError = false}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -43,7 +75,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           message,
           style: const TextStyle(fontFamily: 'HelveticaRounded'),
         ),
-        backgroundColor: const Color(0xFF0067AC),
+        backgroundColor: isError ? Colors.red : const Color(0xFF0067AC),
       ),
     );
   }
@@ -150,31 +182,42 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     width: double.infinity,
                     height: size.height * 0.07,
                     child: ElevatedButton(
-                      onPressed: _resetPassword,
+                      onPressed: _isLoading ? null : _resetPassword,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0067AC),
+                        backgroundColor:
+                            _isLoading ? Colors.grey : const Color(0xFF0067AC),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(25),
                         ),
                         elevation: 0,
                       ),
-                      child: const Text(
-                        "RECUPERAR CONTRASEÑA",
-                        style: TextStyle(
-                          fontFamily: 'HelveticaRounded',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : const Text(
+                              "RECUPERAR CONTRASEÑA",
+                              style: TextStyle(
+                                fontFamily: 'HelveticaRounded',
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
                     ),
                   ),
                   SizedBox(height: size.height * 0.03),
 
                   // Botón para volver al login
                   TextButton(
-                    onPressed:
-                        () => Navigator.pushReplacementNamed(context, '/login'),
+                    onPressed: () =>
+                        Navigator.pushReplacementNamed(context, '/login'),
                     child: const Text(
                       "Volver al inicio de sesión",
                       style: TextStyle(

@@ -265,15 +265,33 @@ class AuthRepository {
   // Agregar método para recuperación de contraseña
   Future<String> sendPasswordResetEmail(String email) async {
     try {
-      await _auth.sendPasswordResetEmail(email: email);
-      return "Se ha enviado un correo de recuperación. Revisa tu bandeja de entrada.";
-    } on FirebaseAuthException catch (e) {
-      if (e.code == 'user-not-found') {
-        return "No hay un usuario registrado con este correo.";
+      final response = await _client
+          .post(
+            Uri.parse('$_backendUrl/admin/users/forgot-password'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Origin': _getOrigin(),
+              'Accept': 'application/json',
+            },
+            body: json.encode({'email': email}),
+          )
+          .timeout(_timeout);
+
+      debugPrint('📡 Código de respuesta: ${response.statusCode}');
+      final responseData = json.decode(response.body);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        if (responseData['status'] == true) {
+          debugPrint('✅ Autenticación exitosa');
+          return 'Correo de recuperación enviado exitosamente';
+        }
       }
-      return "Ocurrió un error. Intenta de nuevo más tarde.";
-    } catch (e) {
-      return "Ocurrió un error inesperado. Intenta de nuevo más tarde.";
+
+      return responseData['error'] ?? 'Error de autenticación';
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error en autenticación: $e');
+      debugPrint('📚 Stack trace: $stackTrace');
+      return 'Error al enviar correo de recuperación: ${e.toString()}';
     }
   }
 

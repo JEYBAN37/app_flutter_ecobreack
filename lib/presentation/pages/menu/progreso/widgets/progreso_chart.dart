@@ -23,12 +23,11 @@ class ProgresoChart extends StatelessWidget {
       values =
           sortedKeys.map((k) => groupedByDay[k]?.toDouble() ?? 0.0).toList();
     } else if (modo == 'mes') {
-      // Para vista mensual, generar la semana actual para gráfica de barras
-      // o todos los días del mes para gráfica de líneas
+      // Para vista mensual, generar todos los días del mes
       final now = DateTime.now();
-      final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-      sortedKeys = List.generate(7, (i) {
-        final d = startOfWeek.add(Duration(days: i));
+      final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+      sortedKeys = List.generate(daysInMonth, (i) {
+        final d = DateTime(now.year, now.month, i + 1);
         return "${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}";
       });
       values =
