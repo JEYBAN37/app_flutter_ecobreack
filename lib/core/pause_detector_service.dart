@@ -22,6 +22,11 @@ class PauseDetectorService {
   }
 
   void start(Function(int) onUpdate) {
+    // Reiniciar contador al iniciar
+    counter = 0;
+    lastY = 0;
+    lastZ = 0;
+
     _sub = accelerometerEvents.listen((event) {
       final y = event.y;
       final z = event.z;
@@ -47,5 +52,12 @@ class PauseDetectorService {
 
   void stop() {
     _sub?.cancel();
+    counter = 0; // Reiniciar contador al parar
+  }
+
+  void reset() {
+    counter = 0;
+    lastY = 0;
+    lastZ = 0;
   }
 }

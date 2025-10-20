@@ -20,7 +20,7 @@ class ApiService {
           name: 'ApiService');
       return _cachedBaseUrl!;
     }
-    return 'https://backeco-zwl8.onrender.com'; // Valor predeterminado
+    return 'https://backeco.onrender.com'; // Valor predeterminado
   }
 
   Future<bool> checkBackendHealth() async {
@@ -29,8 +29,7 @@ class ApiService {
 
   Future<void> testConnection() async {
     try {
-      final response =
-          await Dio().get('https://backeco-zwl8.onrender.com');
+      final response = await Dio().get('https://backeco.onrender.com');
       if (response.statusCode == 200) {
         developer.log('✅ Conexión al backend exitosa: ${response.data}',
             name: 'ApiService');

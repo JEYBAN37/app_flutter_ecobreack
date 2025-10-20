@@ -63,6 +63,8 @@ class _DescubreRutinaPageState extends State<DescubreRutinaPage> {
   String _repsFeedbackMsg = '';
   bool _hasDetectedMovement =
       false; // Nueva variable para rastrear si ya se detectó movimiento
+  bool _processingNextExercise =
+      false; // Variable para evitar múltiples llamadas
 
   List<String> motivos = [];
   final detector = PauseDetectorService();
@@ -79,14 +81,18 @@ class _DescubreRutinaPageState extends State<DescubreRutinaPage> {
     return ejercicio;
   }
 
-  void activarSensorYCapturar() {
+  void activarSensorYCapturar() async {
     try {
+      // Cargar calibración antes de iniciar el detector
+      await detector.loadCalibration();
       detector.start((count) {
         setState(() {
           _repeticiones = count;
           _updateRepsFeedback(count);
         });
       });
+      // Pequeña pausa para que el sensor se estabilice
+      await Future.delayed(const Duration(milliseconds: 500));
     } catch (e) {
       debugPrint('Error al iniciar el servicio de sensor: $e');
       if (mounted) Navigator.of(context).pop();
@@ -97,7 +103,6 @@ class _DescubreRutinaPageState extends State<DescubreRutinaPage> {
     if (count == 1) {
       _showRepsFeedback = true;
       _repsFeedbackMsg = 'Movimiento detectado';
-      // Hide feedback after 2 seconds
       Future.delayed(const Duration(seconds: 2), () {
         if (mounted) {
           setState(() {
@@ -105,11 +110,12 @@ class _DescubreRutinaPageState extends State<DescubreRutinaPage> {
           });
         }
       });
-    } else if (count > 50) {
+    } else if (count >= 50) {
+      // Cambié > por >=
       _showRepsFeedback = true;
-      _repsFeedbackMsg = 'Movimiento aceptable';
-      // Hide feedback after 2 seconds
-      Future.delayed(const Duration(seconds: 2), () {
+      _repsFeedbackMsg = 'Movimiento aceptable - ¡Puedes continuar!';
+      Future.delayed(const Duration(seconds: 3), () {
+        // Más tiempo para leer
         if (mounted) {
           setState(() {
             _showRepsFeedback = false;
@@ -155,21 +161,29 @@ class _DescubreRutinaPageState extends State<DescubreRutinaPage> {
       debugPrint('Iniciando rutina de ${widget.ejercicios[0]}');
       // Cargar calibración al inicio
       await detector.loadCalibration();
-      await _announcePlan(true);
       _initDriveVideoController();
       _initTimer();
       final ejercicio = widget.ejercicios[_currentIndex];
-      final requiereSensor = ejercicio['sensorEnabled'];
+      final requiereSensor = ejercicio['sensorEnabled'] == true;
+      debugPrint(
+          'Ejercicio inicial: ${ejercicio['nombre']}, sensorEnabled value: ${ejercicio['sensorEnabled']}, requiere sensor: $requiereSensor');
       if (requiereSensor) {
         showDialog(
           context: context,
           barrierDismissible: false,
           builder: (context) => const MotionDetectorDialog(),
-        ).then((value) {
+        ).then((value) async {
           if (value == true) {
             activarSensorYCapturar();
+            // Pausa para que el sensor se inicialice completamente
+            await Future.delayed(const Duration(seconds: 2));
+            // Después de configurar el sensor, anunciar la actividad
+            await _announcePlan(true);
           }
         });
+      } else {
+        // Si no requiere sensor, anunciar inmediatamente
+        await _announcePlan(true);
       }
       _initPauseDetector();
       //_onStartPressed();
@@ -379,6 +393,13 @@ class _DescubreRutinaPageState extends State<DescubreRutinaPage> {
   }
 
   Future<void> _announcePlan(bool isFirst) async {
+    // Detener cualquier TTS que esté en progreso
+    await _tts.stop();
+    await flutterTts.stop();
+
+    // Pausa adicional para asegurar que el TTS esté completamente limpio
+    await Future.delayed(const Duration(milliseconds: 300));
+
     final ejercicio = widget.ejercicios[_currentIndex];
     final categoria = ejercicio['categoria'];
     final pasos = (ejercicio['pasos'] as List).join('. ');
@@ -399,11 +420,23 @@ class _DescubreRutinaPageState extends State<DescubreRutinaPage> {
           'Ejercicio: ${ejercicio['nombre']}. ${ejercicio['descripcion']}. Los pasos son: $pasos';
     }
     _alertaVoz = plan;
-    await flutterTts.speak(plan);
+    await _speak(plan);
   }
 
   Future<void> _speak(String text) async {
-    _alertaVoz = text;
+    // Detener AMBOS servicios TTS completamente
+    await _tts.stop();
+    await flutterTts.stop();
+
+    // Pausa para asegurar que se detengan
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    // Actualizar texto de alerta
+    setState(() {
+      _alertaVoz = text;
+    });
+
+    // Usar solo un servicio TTS para evitar conflictos
     await flutterTts.speak(text);
   }
 
@@ -441,72 +474,114 @@ class _DescubreRutinaPageState extends State<DescubreRutinaPage> {
   }
 
   void _nextExercise(bool requiereSensor) async {
-    // Detener cronómetro si está activo
-    _cronometroTimer?.cancel();
-
-    final bool esUltimo = _currentIndex == widget.ejercicios.length - 1;
-
-    if (requiereSensor && (_repeticiones < 50 || _isDetecting == false)) {
-      // Mostrar mensaje de error SOLO si requiere sensor y no cumple repeticiones
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'No Cumpliste con las repeticiones mínimas para avanzar.',
-            style: TextStyle(color: Colors.white),
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
-      detector.stop();
-      Navigator.of(context).pop();
-      return; // <-- Salir aquí, NO sigue el flujo
+    // Verificar si ya se está procesando otro cambio de ejercicio
+    if (_processingNextExercise) {
+      debugPrint(
+          'Ya se está procesando el siguiente ejercicio, ignorando llamada duplicada');
+      return;
     }
 
-    if (!mounted) return; // Verificación temprana de mounted
-    detector.stop();
+    // Marcar que se está procesando INMEDIATAMENTE
     setState(() {
-      _showMotivation = false;
-      _showKeyPoints = false;
-      _timerStarted = false;
+      _processingNextExercise = true;
     });
 
-    final ejercicio = widget.ejercicios[_currentIndex];
-
-    if (!esUltimo) {
-      if (!mounted) return;
-      // Pausa de 10 segundos antes de continuar
-      await _speak('Tómate una pausa de 10 segundos antes de continuar.');
-      await Future.delayed(const Duration(seconds: 10));
-      if (!mounted) return;
-      await sendActividadFinalizadaInfo(); // Enviar info al terminar ejercicio
-      setState(() {
-        _currentIndex++;
-        _initVideoController();
-        _initDriveVideoController(); // <-- Asegura que el video se actualice
-        _initTimer();
-        _timerStarted = false; // <-- Reinicia timer
-        _ejercicioTerminado = false; // <-- Reinicia estado de ejercicio
-      });
-
-      if (!mounted) return;
-      // Cargar calibración para el siguiente ejercicio
-      await detector.loadCalibration();
-      await _announcePlan(_categoriaActual != _categoriaAnterior);
-      // _startAutoStartTimer(); // Eliminar autoinicio, solo inicia cuando el usuario presione 'Iniciar'
-    } else {
-      if (!mounted) return;
-      await _speak(
-          'Con esta categoría acabamos. ¡Rutina completada! Felicitaciones.');
-      await Future.delayed(
-          const Duration(seconds: 8)); // Más tiempo para la voz
-      if (!mounted) return;
+    try {
+      // Detener TODOS los servicios de audio y sensores
+      await _tts.stop();
+      await flutterTts.stop();
       detector.stop();
-      // Solo si cumple repeticiones mínimas, marcar como finalizada y enviar info
-      if (!(requiereSensor && _repeticiones < 50 && _isDetecting == false)) {
+      _cronometroTimer?.cancel();
+      _timer?.cancel();
+      _autoStartTimer?.cancel();
+
+      // ✅ VALIDACIÓN CORREGIDA DE REPETICIONES
+      if (requiereSensor && _repeticiones < 50) {
+        // Cambié de 100 a 50
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'Necesitas al menos 50% de movimiento para avanzar. Tienes: $_repeticiones%'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return; // Salir sin procesar
+      }
+
+      if (!mounted) return;
+
+      final ejercicio = widget.ejercicios[_currentIndex];
+      final bool esUltimo = _currentIndex == widget.ejercicios.length - 1;
+
+      // Enviar info del ejercicio actual antes de cambiar
+      await sendActividadFinalizadaInfo();
+
+      if (!esUltimo) {
+        // Pausa de transición
+        await _speak('Tómate una pausa de 10 segundos antes de continuar.');
+        await Future.delayed(const Duration(seconds: 10));
+
+        if (!mounted) return;
+
+        // Actualizar estado para el siguiente ejercicio
+        setState(() {
+          _currentIndex++;
+          _categoriaAnterior = _categoriaActual;
+          _categoriaActual = widget.ejercicios[_currentIndex]['categoria'];
+
+          // Resetear TODOS los estados
+          _timerStarted = false;
+          _ejercicioTerminado = false;
+          _repeticiones = 0;
+          _isDetecting = false;
+          _showMotivation = false;
+          _showKeyPoints = false;
+          _showCategoryChange = false;
+          _cronometroSegundos = 0;
+        });
+
+        // Inicializar nuevo ejercicio
+        _initVideoController();
+        _initDriveVideoController();
+        _initTimer();
+
+        // Resetear y cargar calibración del sensor
+        detector.reset();
+        await detector.loadCalibration();
+
+        // Pausa antes del anuncio para evitar conflictos de TTS
+        await Future.delayed(const Duration(milliseconds: 1000));
+
+        // Verificar si el nuevo ejercicio requiere sensor
+        final nuevoEjercicio = widget.ejercicios[_currentIndex];
+        final requiereSensorNuevo = nuevoEjercicio['sensorEnabled'] == true;
+
+        if (requiereSensorNuevo) {
+          final result = await showDialog<bool>(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => const MotionDetectorDialog(),
+          );
+
+          if (result == true) {
+            activarSensorYCapturar();
+            await Future.delayed(const Duration(seconds: 2));
+            await _announcePlan(_categoriaActual != _categoriaAnterior);
+          }
+        } else {
+          await _announcePlan(_categoriaActual != _categoriaAnterior);
+        }
+      } else {
+        // Último ejercicio - finalizar rutina
+        await _speak('¡Rutina completada! Felicitaciones.');
+        await Future.delayed(const Duration(seconds: 5));
+
+        if (!mounted) return;
+
         setState(() {
           _rutinaFinalizada = true;
         });
-        await sendActividadFinalizadaInfo();
+
         await showDialog(
           context: context,
           builder: (context) => AlertDialog(
@@ -521,10 +596,17 @@ class _DescubreRutinaPageState extends State<DescubreRutinaPage> {
             ],
           ),
         );
+
         Navigator.of(context).pop(true);
-      } else {
-        // Si no cumple, ya se salió antes (por el return de arriba)
-        // No hacer nada aquí
+      }
+    } catch (e) {
+      debugPrint('Error en _nextExercise: $e');
+    } finally {
+      // SIEMPRE restablecer el flag, sin importar el resultado
+      if (mounted) {
+        setState(() {
+          _processingNextExercise = false;
+        });
       }
     }
   }
@@ -552,13 +634,16 @@ class _DescubreRutinaPageState extends State<DescubreRutinaPage> {
         (ejercicio['pasos'] as List).map((e) => e.toString()).toList();
     final double percentElapsed =
         _totalSeconds > 0 ? (_totalSeconds - _secondsLeft) / _totalSeconds : 0;
-    _isDetecting = _repeticiones > 50 ? true : false;
+    _isDetecting = _repeticiones >= 50;
+    // ✅ CORREGIR LA CONDICIÓN DEL BOTÓN
+    final bool requiereSensor = ejercicio['sensorEnabled'];
     final bool puedeSiguiente = percentElapsed >= 0.8 &&
         _timerStarted &&
-        !_isDetecting &&
+        !_processingNextExercise &&
         !_rutinaFinalizada &&
-        !_ejercicioTerminado;
-    final bool requiereSensor = ejercicio['sensorEnabled'];
+        !_ejercicioTerminado &&
+        (!requiereSensor ||
+            _repeticiones >= 50); // Añadir validación aquí también
 
     // Formato para mostrar el cronómetro
     String _formatCronometro(int segundos) {

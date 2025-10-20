@@ -38,7 +38,7 @@ class AuthRepository {
 
   final _apiService = ApiService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  static const String _backendUrl = "https://backeco-zwl8.onrender.com";
+  static const String _backendUrl = "https://backeco.onrender.com";
   static const _storage = FlutterSecureStorage();
   final String provisionalEmail = "usuario@prueba.com";
   final String provisionalPassword = "123456";
@@ -143,9 +143,9 @@ class AuthRepository {
 
   String _getOrigin() {
     if (kIsWeb) {
-      return 'https://backeco-zwl8.onrender.com';
+      return 'https://backeco.onrender.com';
     }
-    return 'https://backeco-zwl8.onrender.com';
+    return 'https://backeco.onrender.com';
   }
 
   Future<void> requestNotificationPermission() async {
